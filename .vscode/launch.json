@@ -1,0 +1,46 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug yolo_demo",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/yolo_demo",
+            "args": ["${workspaceFolder}/build/model/yolov8n.rknn",
+                    "/dev/video0"
+                    // "${workspaceFolder}/toolkit/rknn_model_zoo/examples/yolov8/model/bus.jpg"
+                    ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${workspaceFolder}/build:${env:LD_LIBRARY_PATH}"
+                },
+                {
+                    "name": "LD_PRELOAD",
+                    "value": "${workspaceFolder}/include/librknnrt.so"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build yolo_demo",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}
