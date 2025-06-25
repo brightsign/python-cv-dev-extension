@@ -19,6 +19,16 @@ TOOLCHAIN_TARGET_TASK += "\
     libmicrohttpd \
     opencv \
     rockchip-rga \
+    python3 \
+    python3-core \
+    python3-modules \
+    python3-dev \
+    python3-numpy \
+    python3-pillow \
+    python3-opencv \
+    python3-setuptools \
+    python3-pip \
+    python3-pytest \
 "
 
 # The filename ends up with "toolchain" in it later (via

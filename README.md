@@ -263,7 +263,7 @@ chmod +x ./download_model.sh && ./download_model.sh
 popd
 ```
 
-Compile the model.  Note the opetion for various SoCs.
+Compile the model.  Note the options for various SoCs.
 
 ```sh
 # for RK3588 -- XT-5 players
