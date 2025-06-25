@@ -19,7 +19,11 @@ public:
 
 // Concrete implementation of MessageFormatter for JSON format
 class JsonMessageFormatter : public MessageFormatter {
+private:
+    bool suppress_empty;
+    
 public:
+    explicit JsonMessageFormatter(bool suppress_empty = false) : suppress_empty(suppress_empty) {}
     std::string formatMessage(const InferenceResult& result) override;
 };
 

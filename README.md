@@ -410,9 +410,9 @@ cp sh/uninstall.sh install/ && chmod +x install/uninstall.sh
 cd "${project_root:-.}/install"
 
 # remove any old zip files
-#rm -f ../gaze-dev-*.zip
+#rm -f ../yolo-dev-*.zip
 
-zip -r ../gaze-dev-$(date +%s).zip ./
+zip -r ../yolo-dev-$(date +%s).zip ./
 ```
 
 Copy the zip to the target, expand it, and use `bsext_init run` to test
@@ -424,10 +424,10 @@ cd "${project_root:-.}"/install
 
 ../sh/make-extension-lvm
 # zip for convenience to transfer to player
-#rm -f ../gaze-demo-*.zip 
-zip ../gaze-demo-$(date +%s).zip ext_npu_gaze*
+#rm -f ../yolo-demo-*.zip 
+zip ../yolo-demo-$(date +%s).zip ext_npu_yolo*
 # clean up
-rm -rf ext_npu_gaze*
+rm -rf ext_npu_yolo*
 ```
 
 ### for development
@@ -442,15 +442,15 @@ At the command prompt, **install** the extension with:
 cd /storage/sd
 # if you have multiple builds on the card, you might want to delete old ones
 # or modify the unzip command to ONLY unzip the version you want to install
-unzip ext_npu_gaze-*.zip
+unzip ext_npu_yolo-*.zip
 # you may need to answer prompts to overwrite old files
 
 # if necessary, STOP the previous running extension
-#/var/volatile/bsext/ext_npu_gaze/bsext_init stop
+#/var/volatile/bsext/ext_npu_yolo/bsext_init stop
 # make sure all processes are stopped
 
 # install the extension
-bash ./ext_npu_gaze_install-lvm.sh
+bash ./ext_npu_yolo_install-lvm.sh
 
 # the extension will be installed on reboot
 reboot
@@ -488,23 +488,22 @@ Following the outline given by the `make-extension` script.
 # EXAMPLE USAGE
 
 # stop the extension
-/var/volatile/bsext/ext_npu_gaze/bsext_init stop
+/var/volatile/bsext/ext_npu_yolo/bsext_init stop
 
 # check that all the processes are stopped
-# ps | grep bsext_npu_gaze
+# ps | grep bsext_npu_yolo
 
 # unmount the extension
-umount /var/volatile/bsext/ext_npu_gaze
+umount /var/volatile/bsext/ext_npu_yolo
 # remove the extension
-rm -rf /var/volatile/bsext/ext_npu_gaze
+rm -rf /var/volatile/bsext/ext_npu_yolo
 
 # remove the extension from the system
-lvremove --yes /dev/mapper/bsext_npu_gaze
+lvremove --yes /dev/mapper/bsext_npu_yolo
 # if that path does not exist, you can try
-lvremove --yes /dev/mapper/bsos-ext_npu_gaze
+lvremove --yes /dev/mapper/bsos-ext_npu_yolo
 
-rm -rf /dev/mapper/bsext_npu_gaze
-rm -rf /dev/mapper/bsos-ext_npu_gaze
+rm -rf /dev/mapper/bsos-ext_npu_yolo
 
 reboot
 ```
@@ -512,7 +511,7 @@ reboot
 For convenience, an `uninstall.sh` script is packaged with the extension and can be run from the player shell.
 
 ```bash
-/var/volatile/bsext/ext_npu_gaze/uninstall.sh
+/var/volatile/bsext/ext_npu_yolo/uninstall.sh
 # will remove the extension from the system
 
 # reboot to apply changes

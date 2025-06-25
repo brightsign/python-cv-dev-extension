@@ -10,14 +10,20 @@ std::string JsonMessageFormatter::formatMessage(const InferenceResult& result) {
     // Add timestamp
     j["timestamp"] = std::chrono::system_clock::to_time_t(result.timestamp);
     
-    // Serialize the complete object_detect_result_list structure
+    // Serialize the detection results
     json detection_results;
-    detection_results["count"] = result.detections.count;
-    
-    // Serialize all results in the array (up to the maximum capacity)
     json results_array = json::array();
-    for (int i = 0; i < 128; ++i) {  // Serialize entire array capacity
+    int valid_count = 0;
+    
+    // Filter and serialize only valid detections if suppress_empty is enabled
+    for (int i = 0; i < result.detections.count; ++i) {
         const auto& detection = result.detections.results[i];
+        
+        // If suppress_empty is enabled, filter out detections with score 0 or class_id 0
+        if (suppress_empty && (detection.score == 0.0f || detection.class_id == 0)) {
+            continue;
+        }
+        
         json detection_obj;
         
         // Box coordinates
@@ -34,7 +40,11 @@ std::string JsonMessageFormatter::formatMessage(const InferenceResult& result) {
         detection_obj["name"] = std::string(detection.name);  // Convert char array to string
         
         results_array.push_back(detection_obj);
+        valid_count++;
     }
+    
+    // Set the count to the number of valid detections
+    detection_results["count"] = valid_count;
     detection_results["results"] = results_array;
     
     // Set the complete detection results as the main object

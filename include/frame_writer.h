@@ -19,9 +19,11 @@ public:
 class DecoratedFrameWriter : public FrameWriter {
 private:
     std::string output_path;
+    bool suppress_empty;
     
 public:
-    explicit DecoratedFrameWriter(const std::string& path) : output_path(path) {}
+    explicit DecoratedFrameWriter(const std::string& path, bool suppress_empty = false) 
+        : output_path(path), suppress_empty(suppress_empty) {}
     void writeFrame(cv::Mat& frame, const InferenceResult& result) override;
 };
 

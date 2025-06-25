@@ -4,41 +4,78 @@
 #include <cstring>
 
 void DecoratedFrameWriter::writeFrame(cv::Mat& frame, const InferenceResult& result) {
-    // Draw boxes on the image for detected objects
+    // Check if we have any valid detections (score > 0 and class_id >= 0)
+    int valid_detections = 0;
     for (int i = 0; i < result.detections.count; i++) {
-        try {
-            auto color = cv::Scalar(0, 255, 0);  // green for detected objects
-            auto& box = result.detections.results[i].box;
-            
-            // Validate box coordinates
-            if (box.left < 0 || box.top < 0 || box.right >= frame.cols || box.bottom >= frame.rows ||
-                box.left >= box.right || box.top >= box.bottom) {
-                printf("Warning: Invalid bounding box coordinates: left=%d, top=%d, right=%d, bottom=%d\n",
-                       box.left, box.top, box.right, box.bottom);
-                continue;  // Skip this detection
+        if (result.detections.results[i].score > 0.0f && result.detections.results[i].class_id >= 0) {
+            valid_detections++;
+        }
+    }
+    
+    // If suppress_empty is enabled and no valid detections, draw "none" text
+    if (suppress_empty && valid_detections == 0) {
+        std::string none_text = "none";
+        cv::Scalar red_color(0, 0, 255);  // Red color in RGB
+        
+        // Get text size to center it
+        int baseline = 0;
+        cv::Size text_size = cv::getTextSize(none_text, cv::FONT_HERSHEY_SIMPLEX, 2.0, 3, &baseline);
+        
+        // Calculate center position
+        cv::Point text_pos;
+        text_pos.x = (frame.cols - text_size.width) / 2;
+        text_pos.y = (frame.rows + text_size.height) / 2;
+        
+        // Draw "none" text in red
+        cv::putText(frame, none_text, text_pos, cv::FONT_HERSHEY_SIMPLEX, 2.0, red_color, 3);
+    } else {
+        // Draw boxes on the image for detected objects
+        for (int i = 0; i < result.detections.count; i++) {
+            try {
+                const auto& detection = result.detections.results[i];
+                
+                // Skip detections with invalid scores or class_ids
+                if (detection.score <= 0.0f || detection.class_id < 0) {
+                    printf("Skipping invalid detection: score=%.2f, class_id=%d\n", detection.score, detection.class_id);
+                    continue;
+                }
+                
+                auto color = cv::Scalar(0, 255, 0);  // green for detected objects
+                auto& box = detection.box;
+                
+                // Validate box coordinates
+                if (box.left < 0 || box.top < 0 || box.right >= frame.cols || box.bottom >= frame.rows ||
+                    box.left >= box.right || box.top >= box.bottom) {
+                    printf("Warning: Invalid bounding box coordinates: left=%d, top=%d, right=%d, bottom=%d\n",
+                           box.left, box.top, box.right, box.bottom);
+                    continue;  // Skip this detection
+                }
+                
+                printf("Drawing detection %d: score=%.2f, class_id=%d, box=[%d,%d,%d,%d]\n", 
+                       i, detection.score, detection.class_id, box.left, box.top, box.right, box.bottom);
+                
+                // Draw bounding box
+                cv::rectangle(frame, cv::Point(box.left, box.top), cv::Point(box.right, box.bottom), color, 2);
+                
+                // Validate name pointer before using
+                const char* name_ptr = detection.name;
+                std::string obj_name = (name_ptr && strlen(name_ptr) > 0 && strlen(name_ptr) < 100) ? name_ptr : "unknown";
+                
+                // Draw label with confidence score
+                char text[256];
+                snprintf(text, sizeof(text), "%.2f", detection.score);
+                std::string label_text = obj_name + ": " + text;
+                
+                // Make sure label is drawn inside the image
+                int baseline = 0;
+                cv::Size text_size = cv::getTextSize(label_text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 2, &baseline);
+                int y_pos = std::max(box.top - 10, text_size.height);
+                
+                cv::putText(frame, label_text, cv::Point(box.left, y_pos), 
+                            cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 2);
+            } catch (const std::exception& e) {
+                printf("Exception while drawing box %d: %s\n", i, e.what());
             }
-            
-            // Draw bounding box
-            cv::rectangle(frame, cv::Point(box.left, box.top), cv::Point(box.right, box.bottom), color, 2);
-            
-            // Validate name pointer before using
-            const char* name_ptr = result.detections.results[i].name;
-            std::string obj_name = (name_ptr && strlen(name_ptr) < 100) ? name_ptr : "unknown";
-            
-            // Draw label with confidence score
-            char text[256];
-            snprintf(text, sizeof(text), "%.2f", result.detections.results[i].score);
-            std::string label_text = obj_name + ": " + text;
-            
-            // Make sure label is drawn inside the image
-            int baseline = 0;
-            cv::Size text_size = cv::getTextSize(label_text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 2, &baseline);
-            int y_pos = std::max(box.top - 10, text_size.height);
-            
-            cv::putText(frame, label_text, cv::Point(box.left, y_pos), 
-                        cv::FONT_HERSHEY_SIMPLEX, 0.5, color, 2);
-        } catch (const std::exception& e) {
-            printf("Exception while drawing box %d: %s\n", i, e.what());
         }
     }
 

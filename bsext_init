@@ -1,19 +1,19 @@
 #!/bin/bash
 ### BEGIN INIT INFO
-# Provides:          bsext-gaze
+# Provides:          bsext-yolo
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: BrightSign Gaze Detection Extension
-# Description:       Runs the BrightSign NPU-based gaze detection service
+# Short-Description: BrightSign Yolo Object Detection Extension
+# Description:       Runs the BrightSign NPU-based Yolo Object detection service
 ### END INIT INFO
 
 # Source function library if it exists
 [ -f /etc/init.d/functions ] && . /etc/init.d/functions
 
 SCRIPT_PATH=$(dirname $(realpath $0))
-DAEMON_NAME="bsext-gaze"
+DAEMON_NAME="bsext-yolo"
 PIDFILE="/var/run/${DAEMON_NAME}.pid"
 
 # defaults -- these can be overridden by the registry
@@ -73,7 +73,7 @@ get_video_device() {
 
 
 # Common function to run the attention demo
-run_attention_demo() {
+run_yolo_demo() {
     # Get command arguments from setup function
     # CMD_ARGS=$(get_runtime_args)
     # echo "Using Model and Device: ${CMD_ARGS}"
@@ -82,7 +82,7 @@ run_attention_demo() {
     SOC_HOME=${SCRIPT_PATH}/${SOC_NAME}
     cd ${SOC_HOME}
 
-    CMD_ARGS="${SOC_HOME}/model/RetinaFace.rknn $(get_video_device)"
+    CMD_ARGS="${SOC_HOME}/model/yolov8n.rknn $(get_video_device)"
     echo "Using Model and Device: ${CMD_ARGS}"
     
     # Default to running in foreground
@@ -92,10 +92,10 @@ run_attention_demo() {
     if [ "$background" = "true" ]; then
         # Run as a daemon in the background
         start-stop-daemon --start --background --make-pidfile --pidfile ${PIDFILE} \
-                          --exec ${SOC_HOME}/attention_demo -- ${CMD_ARGS}
+                          --exec ${SOC_HOME}/yolo_demo -- ${CMD_ARGS}
     else
         # Run directly in foreground
-        ${SOC_HOME}/attention_demo ${CMD_ARGS}
+        ${SOC_HOME}/yolo_demo ${CMD_ARGS}
     fi
 }
 
@@ -112,7 +112,7 @@ do_start() {
     fi
 
     # Start the attention_demo process as a daemon
-    run_attention_demo true
+    run_yolo_demo true
 }
 
 do_stop() {
@@ -137,7 +137,7 @@ case "$1" in
     run)
         echo "Running ${DAEMON_NAME} in foreground"
         # Run directly in foreground (not as daemon)
-        run_attention_demo false
+        run_yolo_demo false
         ;;
     *)
         echo "Usage: $0 {start|stop|restart|run}"

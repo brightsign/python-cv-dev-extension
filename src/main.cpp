@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string>
 #include <thread>
+#include <cstring>
 
 #include "image_utils.h"
 #include "inference.h"
@@ -32,17 +33,26 @@ void signalHandler(int signum) {
 
 int main(int argc, char **argv) {
     char *model_name = NULL;
-    if (argc != 3) {
-        printf("Usage: %s <rknn model> <source> \n", argv[0]);
+    bool suppress_empty = false;
+    
+    if (argc < 3 || argc > 4) {
+        printf("Usage: %s <rknn model> <source> [--suppress-empty]\n", argv[0]);
+        printf("  --suppress-empty: suppress output when no detections (optional)\n");
         return -1;
     }
 
     // The path where the model is located
     model_name = (char *)argv[1];
     char *source_name = argv[2];
+    
+    // Check for suppress-empty flag
+    if (argc == 4 && strcmp(argv[3], "--suppress-empty") == 0) {
+        suppress_empty = true;
+        printf("Suppress-empty mode enabled\n");
+    }
 
     // Create frame writer for decorated output
-    auto frameWriter = std::make_shared<DecoratedFrameWriter>("/tmp/output.jpg");
+    auto frameWriter = std::make_shared<DecoratedFrameWriter>("/tmp/output.jpg", suppress_empty);
     
     MLInferenceThread mlThread(
         model_name,
@@ -53,7 +63,7 @@ int main(int argc, char **argv) {
         frameWriter);
 
     // Create formatters
-    auto json_formatter = std::make_shared<JsonMessageFormatter>();
+    auto json_formatter = std::make_shared<JsonMessageFormatter>(suppress_empty);
     
     // Create UDP publisher (backward compatibility)
     // UDPPublisher json_udp_publisher(
