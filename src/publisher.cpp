@@ -19,8 +19,8 @@ std::string JsonMessageFormatter::formatMessage(const InferenceResult& result) {
     for (int i = 0; i < result.detections.count; ++i) {
         const auto& detection = result.detections.results[i];
         
-        // If suppress_empty is enabled, filter out detections with score 0 or class_id 0
-        if (suppress_empty && (detection.score == 0.0f || detection.class_id == 0)) {
+        // If suppress_empty is enabled, filter out detections with prop 0 or cls_id 0
+        if (suppress_empty && (detection.prop == 0.0f || detection.cls_id == 0)) {
             continue;
         }
         
@@ -35,8 +35,8 @@ std::string JsonMessageFormatter::formatMessage(const InferenceResult& result) {
         };
         
         // Detection properties
-        detection_obj["score"] = detection.score;
-        detection_obj["class_id"] = detection.class_id;
+        detection_obj["score"] = detection.prop;
+        detection_obj["class_id"] = detection.cls_id;
         detection_obj["name"] = std::string(detection.name);  // Convert char array to string
         
         results_array.push_back(detection_obj);

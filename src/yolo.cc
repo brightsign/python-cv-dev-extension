@@ -35,19 +35,20 @@ static void dump_tensor_attr(rknn_tensor_attr *attr)
 int init_yolo_model(const char *model_path, rknn_app_context_t *app_ctx)
 {
     int ret;
+    int model_len = 0;
+    char *model;
     rknn_context ctx = 0;
 
-    // Print SDK version first
-    // rknn_sdk_version sdk_ver;
-    // ret = rknn_query(0, RKNN_QUERY_SDK_VERSION, &sdk_ver, sizeof(sdk_ver));
-    // if (ret < 0) {
-    //     printf("rknn_query SDK version fail! ret=%d\n", ret);
-    // } else {
-    //     printf("sdk api version: %s\n", sdk_ver.api_version);
-    //     printf("sdk driver version: %s\n", sdk_ver.drv_version);
-    // }
+    // Load RKNN Model
+    model_len = read_data_from_file(model_path, &model);
+    if (model == NULL)
+    {
+        printf("load_model fail!\n");
+        return -1;
+    }
 
-    ret = rknn_init(&ctx, (char *)model_path, 0, 0, NULL);
+    ret = rknn_init(&ctx, model, model_len, 0, NULL);
+    free(model);
     if (ret < 0)
     {
         printf("rknn_init fail! ret=%d\n", ret);

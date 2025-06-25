@@ -48,6 +48,7 @@ public:
         std::shared_ptr<FrameWriter> writer = nullptr);
     ~MLInferenceThread(); // Destructor declaration
     void operator()();
+    void runSingleInference(); // Single-shot inference for file input
 };
 
 #endif // INFERENCE_H

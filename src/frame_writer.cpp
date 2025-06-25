@@ -7,7 +7,7 @@ void DecoratedFrameWriter::writeFrame(cv::Mat& frame, const InferenceResult& res
     // Check if we have any valid detections (score > 0 and class_id >= 0)
     int valid_detections = 0;
     for (int i = 0; i < result.detections.count; i++) {
-        if (result.detections.results[i].score > 0.0f && result.detections.results[i].class_id >= 0) {
+        if (result.detections.results[i].prop > 0.0f && result.detections.results[i].cls_id >= 0) {
             valid_detections++;
         }
     }
@@ -35,8 +35,8 @@ void DecoratedFrameWriter::writeFrame(cv::Mat& frame, const InferenceResult& res
                 const auto& detection = result.detections.results[i];
                 
                 // Skip detections with invalid scores or class_ids
-                if (detection.score <= 0.0f || detection.class_id < 0) {
-                    printf("Skipping invalid detection: score=%.2f, class_id=%d\n", detection.score, detection.class_id);
+                if (detection.prop <= 0.0f || detection.cls_id < 0) {
+                    printf("Skipping invalid detection: prop=%.2f, cls_id=%d\n", detection.prop, detection.cls_id);
                     continue;
                 }
                 
@@ -51,8 +51,8 @@ void DecoratedFrameWriter::writeFrame(cv::Mat& frame, const InferenceResult& res
                     continue;  // Skip this detection
                 }
                 
-                printf("Drawing detection %d: score=%.2f, class_id=%d, box=[%d,%d,%d,%d]\n", 
-                       i, detection.score, detection.class_id, box.left, box.top, box.right, box.bottom);
+                printf("Drawing detection %d: prop=%.2f, cls_id=%d, box=[%d,%d,%d,%d]\n", 
+                       i, detection.prop, detection.cls_id, box.left, box.top, box.right, box.bottom);
                 
                 // Draw bounding box
                 cv::rectangle(frame, cv::Point(box.left, box.top), cv::Point(box.right, box.bottom), color, 2);
@@ -63,7 +63,7 @@ void DecoratedFrameWriter::writeFrame(cv::Mat& frame, const InferenceResult& res
                 
                 // Draw label with confidence score
                 char text[256];
-                snprintf(text, sizeof(text), "%.2f", detection.score);
+                snprintf(text, sizeof(text), "%.2f", detection.prop);
                 std::string label_text = obj_name + ": " + text;
                 
                 // Make sure label is drawn inside the image

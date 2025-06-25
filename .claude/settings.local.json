@@ -6,7 +6,14 @@
       "Bash(grep:*)",
       "Bash(mkdir:*)",
       "Bash(cmake:*)",
-      "Bash(make:*)"
+      "Bash(make:*)",
+      "Bash(./yolo_demo)",
+      "Bash(./build/yolo_demo)",
+      "Bash(./yolo_demo:*)",
+      "Bash(python3:*)",
+      "Bash(cp:*)",
+      "Bash(cat:*)",
+      "Bash(./build/yolo_demo:*)"
     ],
     "deny": []
   }

@@ -4,8 +4,11 @@
 #include "rknn_api.h"
 #include "common.h"
 
-#define BOX_THRESH 0.5    // Default box confidence threshold
+#define BOX_THRESH 0.25   // Default box confidence threshold
 #define NMS_THRESH 0.45   // Default NMS threshold
+#define OBJ_CLASS_NUM 80
+#define OBJ_NUMB_MAX_SIZE 128
+#define OBJ_NAME_MAX_SIZE 64
 
 typedef struct {
     rknn_context rknn_ctx;
@@ -27,14 +30,14 @@ typedef struct box_rect_t {
 
 typedef struct object_detect_result {
     box_rect_t box;
-    float score;
-    int class_id;
-    char name[256];
+    float prop;
+    int cls_id;
+    char name[OBJ_NAME_MAX_SIZE];
 } object_detect_result_t;
 
 typedef struct object_detect_result_list {
     int count;
-    object_detect_result_t results[128];
+    object_detect_result_t results[OBJ_NUMB_MAX_SIZE];
 } object_detect_result_list;
 
 int init_yolo_model(const char *model_path, rknn_app_context_t *app_ctx);

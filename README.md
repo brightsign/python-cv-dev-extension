@@ -14,6 +14,10 @@ BSMP are delivered as an BrightSign OS (BOS) "extension." Extensions are deliver
 
 ## Supported Cameras
 
+```bash
+
+```
+
 In general, any camera supported by Linux *should* work.  We've had great luck with Logitech cameras, especially the C270.
 
 ## Decorated Camera Output
@@ -282,13 +286,9 @@ cp examples/yolov8/model/RK3588/yolov8n.rknn ../../install/RK3588/model/
 
 ## (Optional) Step 2 - Build and test on Orange Pi
 
-_this section under development_
-
-TODO: refine build to use libraries provided by SDK to cross-build
-
 While not required, it can be handy to move the project to an OrangePi (OPi) as this facilitates a more responsive build and debug process due to a fully linux distribution and native compiler. Consult the [Orange Pi Wiki](http://www.orangepi.org/orangepiwiki/index.php/Orange_Pi_5_Plus) for more information.
 
-Use of the Debian image from the eMMC is recommended. Common tools like `git`, `gcc` and `cmake` are also needed to build the project. In the interest of brevity, installation instructions for those are not included with this project.
+Use of the Debian (Armbian) image from the eMMC is recommended. Common tools like `git`, `gcc` and `cmake` are also needed to build the project. In the interest of brevity, installation instructions for those are not included with this project.
 
 **Requirements**
 

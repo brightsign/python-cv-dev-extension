@@ -4,6 +4,7 @@
 
 #include "inference.h"
 #include "yolo.h"
+#include "postprocess.h"
 
 
 
@@ -91,6 +92,9 @@ MLInferenceThread::MLInferenceThread(
     // Store pointer to source name (argv remains valid)
     this->source_name = source_name;
 
+    // Initialize post-processing
+    init_post_process();
+    
     // Create and initialize the model with dynamic allocation
     rknn_app_ctx = std::make_unique<rknn_app_context_t>();
     memset(rknn_app_ctx.get(), 0, sizeof(rknn_app_context_t));
@@ -113,6 +117,33 @@ MLInferenceThread::~MLInferenceThread() {
 
     running = false;
     resultQueue.signalShutdown();
+}
+
+void MLInferenceThread::runSingleInference() {
+    printf("Running single inference on file: %s\n", source_name);
+    
+    // Load image from file
+    cv::Mat img = cv::imread(source_name);
+    if (img.empty()) {
+        printf("Failed to load image from file: %s\n", source_name);
+        running = false;
+        return;
+    }
+    
+    printf("Loaded image %dx%d from file: %s\n", img.cols, img.rows, source_name);
+    
+    // Run inference on the loaded image
+    InferenceResult result = runInference(img);
+    
+    // Push result to queue for publisher to process
+    resultQueue.push(result);
+    
+    // Write decorated frame if frameWriter is available
+    if (frameWriter) {
+        frameWriter->writeFrame(img, result);
+    }
+    
+    printf("Single inference completed\n");
 }
 
 void MLInferenceThread::operator()() {
