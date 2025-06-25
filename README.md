@@ -279,7 +279,8 @@ docker run -it --rm -v $(pwd):/zoo rknn_tk2 /bin/bash \
 
 mkdir -p ../../install/RK3588/model
 cp examples/yolov8/model/RK3588/yolov8n.rknn ../../install/RK3588/model/
-
+# copy the labels
+cp examples/yolov8/model/coco_80_labels_list.txt ../../install/RK3588/model/
 ```
 
 **The necessary binaries (model, libraries) are now in the `install` directory of the project**
