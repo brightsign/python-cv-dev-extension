@@ -24,9 +24,12 @@
 
 #include <set>
 #include <vector>
-#define LABEL_NALE_TXT_PATH "./model/coco_80_labels_list.txt"
+#define LABEL_NALE_TXT_PATH "model/coco_80_labels_list.txt"
 
 static char *labels[OBJ_CLASS_NUM];
+
+// Forward declaration
+char *coco_cls_to_name(int cls_id);
 
 inline static int clamp(float val, int min, int max) { return val > min ? (val < max ? val : max) : min; }
 
@@ -650,6 +653,16 @@ int post_process(rknn_app_context_t *app_ctx, void *outputs, letterbox_t *letter
         od_results->results[last_count].box.bottom = (int)(clamp(y2, 0, model_in_h) / letter_box->scale);
         od_results->results[last_count].prop = obj_conf;
         od_results->results[last_count].cls_id = id;
+        
+        // Set the class name
+        char *class_name = coco_cls_to_name(id);
+        if (class_name) {
+            strncpy(od_results->results[last_count].name, class_name, OBJ_NAME_MAX_SIZE - 1);
+            od_results->results[last_count].name[OBJ_NAME_MAX_SIZE - 1] = '\0';  // Ensure null termination
+        } else {
+            strcpy(od_results->results[last_count].name, "unknown");
+        }
+        
         last_count++;
     }
     od_results->count = last_count;
@@ -659,21 +672,29 @@ int post_process(rknn_app_context_t *app_ctx, void *outputs, letterbox_t *letter
 int init_post_process()
 {
     int ret = 0;
+    printf("Loading labels from: %s\n", LABEL_NALE_TXT_PATH);
     ret = loadLabelName(LABEL_NALE_TXT_PATH, labels);
     if (ret < 0)
     {
         printf("Load %s failed!\n", LABEL_NALE_TXT_PATH);
         return -1;
     }
+    printf("Successfully loaded %d labels\n", ret);
+    
+    // Debug: print first few labels
+    for (int i = 0; i < 10 && i < OBJ_CLASS_NUM; i++) {
+        printf("Label %d: %s\n", i, labels[i] ? labels[i] : "NULL");
+    }
+    
     return 0;
 }
 
+static char null_label[] = "null";
 char *coco_cls_to_name(int cls_id)
 {
-
-    if (cls_id >= OBJ_CLASS_NUM)
+    if (cls_id < 0 || cls_id >= OBJ_CLASS_NUM)
     {
-        return "null";
+        return null_label;
     }
 
     if (labels[cls_id])
@@ -681,7 +702,7 @@ char *coco_cls_to_name(int cls_id)
         return labels[cls_id];
     }
 
-    return "null";
+    return null_label;
 }
 
 void deinit_post_process()
