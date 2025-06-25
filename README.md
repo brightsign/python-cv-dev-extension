@@ -14,10 +14,6 @@ BSMP are delivered as an BrightSign OS (BOS) "extension." Extensions are deliver
 
 ## Supported Cameras
 
-```bash
-
-```
-
 In general, any camera supported by Linux *should* work.  We've had great luck with Logitech cameras, especially the C270.
 
 ## Decorated Camera Output
@@ -106,8 +102,8 @@ sudo apt-get update && sudo apt-get install -y \
 
 ```bash
 #cd path/to/your/directory
-git clone git@github.com:brightsign/brightsign-npu-gaze-extension.git
-cd brightsign-npu-gaze-extension
+git clone git@github.com:scottrfrancis/cv-npu-yolo-object-detect.git
+cd cv-npu-yolo-object-detect
 
 export project_root=$(pwd)
 # this environment variable is used in the following scripts to refer to the root of the project
@@ -337,7 +333,7 @@ cd "${project_root:-.}"
 source ./sdk/environment-setup-aarch64-oe-linux
 
 # this command can be used to clean old builds
-#rm -rf build_xt5
+rm -rf build_xt5
 
 mkdir -p build_xt5 && cd $_
 
