@@ -14,7 +14,9 @@
       "Bash(cp:*)",
       "Bash(cat:*)",
       "Bash(./build/yolo_demo:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(source:*)",
+      "Bash(LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH ./RK3588/yolo_demo --help)"
     ],
     "deny": []
   }

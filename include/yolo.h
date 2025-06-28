@@ -10,6 +10,13 @@
 #define OBJ_NUMB_MAX_SIZE 128
 #define OBJ_NAME_MAX_SIZE 64
 
+// YOLO model type enumeration
+typedef enum {
+    YOLO_V8,    // YOLOv8 with DFL encoding and separate box/score tensors
+    YOLO_X,     // YOLOX with unified tensors and objectness scoring
+    YOLO_UNKNOWN // Unknown or unsupported model type
+} yolo_model_type_t;
+
 typedef struct {
     rknn_context rknn_ctx;
     rknn_input_output_num io_num;
@@ -19,6 +26,7 @@ typedef struct {
     int model_width;
     int model_height;
     bool is_quant;
+    yolo_model_type_t model_type;  // Detected YOLO model type
 } rknn_app_context_t;
 
 typedef struct box_rect_t {
@@ -43,5 +51,8 @@ typedef struct object_detect_result_list {
 int init_yolo_model(const char *model_path, rknn_app_context_t *app_ctx);
 int release_yolo_model(rknn_app_context_t *app_ctx);
 int inference_yolo_model(rknn_app_context_t *app_ctx, image_buffer_t *img, object_detect_result_list *od_results);
+
+// Model type detection function
+yolo_model_type_t detect_yolo_model_type(rknn_app_context_t *app_ctx);
 
 #endif //_RKNN_DEMO_MOBILENET_H_

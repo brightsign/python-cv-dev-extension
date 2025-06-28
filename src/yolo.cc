@@ -32,6 +32,53 @@ static void dump_tensor_attr(rknn_tensor_attr *attr)
            get_qnt_type_string(attr->qnt_type), attr->zp, attr->scale);
 }
 
+yolo_model_type_t detect_yolo_model_type(rknn_app_context_t *app_ctx)
+{
+    if (!app_ctx || !app_ctx->output_attrs) {
+        return YOLO_UNKNOWN;
+    }
+
+    // YOLOv8 typically has 3 outputs with different channel counts for different scales
+    // YOLOX typically has 3 outputs with unified format: [batch, height, width, 85] (85 = 4 box + 1 obj + 80 classes)
+    // Let's analyze the output tensor shapes to determine the model type
+    
+    if (app_ctx->io_num.n_output == 3) {
+        // Check first output tensor dimensions
+        rknn_tensor_attr *first_output = &app_ctx->output_attrs[0];
+        
+        if (first_output->n_dims == 4) {
+            // For YOLOv8: typically [1, channels, height, width] where channels varies by scale
+            // For YOLOX: typically [1, height, width, 85]
+            
+            int last_dim = first_output->dims[first_output->n_dims - 1];
+            
+            // YOLOX characteristic: last dimension is 85 (4 box + 1 objectness + 80 classes)
+            if (last_dim == 85 || last_dim == (4 + 1 + OBJ_CLASS_NUM)) {
+                printf("Model type detection: YOLOX format detected (last dim: %d)\n", last_dim);
+                return YOLO_X;
+            }
+            
+            // YOLOv8 characteristic: channels dimension varies, but not 85
+            // YOLOv8 usually has separate box and score tensors or DFL-encoded outputs
+            if (first_output->fmt == RKNN_TENSOR_NCHW) {
+                int channels = first_output->dims[1];
+                printf("Model type detection: YOLOv8 format detected (NCHW, channels: %d)\n", channels);
+                return YOLO_V8;
+            } else if (first_output->fmt == RKNN_TENSOR_NHWC) {
+                int channels = first_output->dims[3];
+                // YOLOv8 with NHWC format, channels should not be 85 for YOLOX
+                if (channels != 85 && channels != (4 + 1 + OBJ_CLASS_NUM)) {
+                    printf("Model type detection: YOLOv8 format detected (NHWC, channels: %d)\n", channels);
+                    return YOLO_V8;
+                }
+            }
+        }
+    }
+    
+    printf("Model type detection: Unable to determine model type, defaulting to YOLOv8\n");
+    return YOLO_V8;  // Default to YOLOv8 for backwards compatibility
+}
+
 int init_yolo_model(const char *model_path, rknn_app_context_t *app_ctx)
 {
     int ret;
@@ -123,6 +170,12 @@ int init_yolo_model(const char *model_path, rknn_app_context_t *app_ctx)
 
     printf("model input height=%d, width=%d, channel=%d\n",
            app_ctx->model_height, app_ctx->model_width, app_ctx->model_channel);
+
+    // Detect YOLO model type based on output tensor characteristics
+    app_ctx->model_type = detect_yolo_model_type(app_ctx);
+    const char* model_type_str = (app_ctx->model_type == YOLO_V8) ? "YOLOv8" : 
+                                (app_ctx->model_type == YOLO_X) ? "YOLOX" : "Unknown";
+    printf("Detected model type: %s\n", model_type_str);
 
     return 0;
 }

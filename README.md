@@ -353,7 +353,7 @@ cd "${project_root:-.}"
 source ./sdk/environment-setup-aarch64-oe-linux
 
 # this command can be used to clean old builds
-#rm -rf build_xt5
+rm -rf build_xt5
 
 mkdir -p build_xt5 && cd $_
 
