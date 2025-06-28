@@ -38,8 +38,8 @@ yolo_model_type_t detect_yolo_model_type(rknn_app_context_t *app_ctx)
         return YOLO_UNKNOWN;
     }
 
-    // YOLOv8 typically has 3 outputs with different channel counts for different scales
-    // YOLOX typically has 3 outputs with unified format: [batch, height, width, 85] (85 = 4 box + 1 obj + 80 classes)
+    // Standard YOLO typically has 3 outputs with different channel counts for different scales
+    // Simplified YOLO typically has 3 outputs with unified format: [batch, height, width, 85] (85 = 4 box + 1 obj + 80 classes)
     // Let's analyze the output tensor shapes to determine the model type
     
     if (app_ctx->io_num.n_output == 3) {
@@ -47,36 +47,36 @@ yolo_model_type_t detect_yolo_model_type(rknn_app_context_t *app_ctx)
         rknn_tensor_attr *first_output = &app_ctx->output_attrs[0];
         
         if (first_output->n_dims == 4) {
-            // For YOLOv8: typically [1, channels, height, width] where channels varies by scale
-            // For YOLOX: typically [1, height, width, 85]
+            // For Standard YOLO: typically [1, channels, height, width] where channels varies by scale
+            // For Simplified YOLO: typically [1, height, width, 85]
             
             int last_dim = first_output->dims[first_output->n_dims - 1];
             
-            // YOLOX characteristic: last dimension is 85 (4 box + 1 objectness + 80 classes)
+            // Simplified YOLO characteristic: last dimension is 85 (4 box + 1 objectness + 80 classes)
             if (last_dim == 85 || last_dim == (4 + 1 + OBJ_CLASS_NUM)) {
-                printf("Model type detection: YOLOX format detected (last dim: %d)\n", last_dim);
-                return YOLO_X;
+                printf("Model type detection: Simplified YOLO format detected (last dim: %d)\n", last_dim);
+                return YOLO_SIMPLIFIED;
             }
             
-            // YOLOv8 characteristic: channels dimension varies, but not 85
-            // YOLOv8 usually has separate box and score tensors or DFL-encoded outputs
+            // Standard YOLO characteristic: channels dimension varies, but not 85
+            // Standard YOLO usually has separate box and score tensors or DFL-encoded outputs
             if (first_output->fmt == RKNN_TENSOR_NCHW) {
                 int channels = first_output->dims[1];
-                printf("Model type detection: YOLOv8 format detected (NCHW, channels: %d)\n", channels);
-                return YOLO_V8;
+                printf("Model type detection: Standard YOLO format detected (NCHW, channels: %d)\n", channels);
+                return YOLO_STANDARD;
             } else if (first_output->fmt == RKNN_TENSOR_NHWC) {
                 int channels = first_output->dims[3];
-                // YOLOv8 with NHWC format, channels should not be 85 for YOLOX
+                // Standard YOLO with NHWC format, channels should not be 85 for Simplified YOLO
                 if (channels != 85 && channels != (4 + 1 + OBJ_CLASS_NUM)) {
-                    printf("Model type detection: YOLOv8 format detected (NHWC, channels: %d)\n", channels);
-                    return YOLO_V8;
+                    printf("Model type detection: Standard YOLO format detected (NHWC, channels: %d)\n", channels);
+                    return YOLO_STANDARD;
                 }
             }
         }
     }
     
-    printf("Model type detection: Unable to determine model type, defaulting to YOLOv8\n");
-    return YOLO_V8;  // Default to YOLOv8 for backwards compatibility
+    printf("Model type detection: Unable to determine model type, defaulting to Standard YOLO\n");
+    return YOLO_STANDARD;  // Default to Standard YOLO for backwards compatibility
 }
 
 int init_yolo_model(const char *model_path, rknn_app_context_t *app_ctx)
@@ -173,8 +173,8 @@ int init_yolo_model(const char *model_path, rknn_app_context_t *app_ctx)
 
     // Detect YOLO model type based on output tensor characteristics
     app_ctx->model_type = detect_yolo_model_type(app_ctx);
-    const char* model_type_str = (app_ctx->model_type == YOLO_V8) ? "YOLOv8" : 
-                                (app_ctx->model_type == YOLO_X) ? "YOLOX" : "Unknown";
+    const char* model_type_str = (app_ctx->model_type == YOLO_STANDARD) ? "Standard YOLO" : 
+                                (app_ctx->model_type == YOLO_SIMPLIFIED) ? "Simplified YOLO" : "Unknown";
     printf("Detected model type: %s\n", model_type_str);
 
     return 0;

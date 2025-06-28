@@ -507,10 +507,10 @@ static int process_i8_rv1106(int8_t *box_tensor, int32_t box_zp, float box_scale
 }
 #endif
 
-// YOLOX processing functions (unified tensor format)
-static int process_yolox_u8(uint8_t *input, int grid_h, int grid_w, int height, int width, int stride,
-                           std::vector<float> &boxes, std::vector<float> &objProbs, std::vector<int> &classId, 
-                           float threshold, int32_t zp, float scale)
+// Simplified YOLO processing functions (unified tensor format)
+static int process_simplified_yolo_u8(uint8_t *input, int grid_h, int grid_w, int height, int width, int stride,
+                                      std::vector<float> &boxes, std::vector<float> &objProbs, std::vector<int> &classId, 
+                                      float threshold, int32_t zp, float scale)
 {
     int validCount = 0;
     int grid_len = grid_h * grid_w;
@@ -539,7 +539,7 @@ static int process_yolox_u8(uint8_t *input, int grid_h, int grid_w, int height, 
                     float box_w = deqnt_affine_u8_to_f32(in_ptr[2 * grid_len], zp, scale);
                     float box_h = deqnt_affine_u8_to_f32(in_ptr[3 * grid_len], zp, scale);
                     
-                    // YOLOX coordinate transformation
+                    // Simplified YOLO coordinate transformation
                     box_x = (box_x + j) * (float)stride;
                     box_y = (box_y + i) * (float)stride;
                     box_w = exp(box_w) * stride;
@@ -547,7 +547,7 @@ static int process_yolox_u8(uint8_t *input, int grid_h, int grid_w, int height, 
                     box_x -= (box_w / 2.0);
                     box_y -= (box_h / 2.0);
 
-                    // YOLOX scoring: objectness * class_score
+                    // Simplified YOLO scoring: objectness * class_score
                     objProbs.push_back(deqnt_affine_u8_to_f32(maxClassProbs, zp, scale) * 
                                      deqnt_affine_u8_to_f32(box_confidence, zp, scale));
                     classId.push_back(maxClassId);
@@ -563,9 +563,9 @@ static int process_yolox_u8(uint8_t *input, int grid_h, int grid_w, int height, 
     return validCount;
 }
 
-static int process_yolox_i8(int8_t *input, int grid_h, int grid_w, int height, int width, int stride,
-                           std::vector<float> &boxes, std::vector<float> &objProbs, std::vector<int> &classId, 
-                           float threshold, int32_t zp, float scale)
+static int process_simplified_yolo_i8(int8_t *input, int grid_h, int grid_w, int height, int width, int stride,
+                                      std::vector<float> &boxes, std::vector<float> &objProbs, std::vector<int> &classId, 
+                                      float threshold, int32_t zp, float scale)
 {
     int validCount = 0;
     int grid_len = grid_h * grid_w;
@@ -594,7 +594,7 @@ static int process_yolox_i8(int8_t *input, int grid_h, int grid_w, int height, i
                     float box_w = deqnt_affine_to_f32(in_ptr[2 * grid_len], zp, scale);
                     float box_h = deqnt_affine_to_f32(in_ptr[3 * grid_len], zp, scale);
                     
-                    // YOLOX coordinate transformation
+                    // Simplified YOLO coordinate transformation
                     box_x = (box_x + j) * (float)stride;
                     box_y = (box_y + i) * (float)stride;
                     box_w = exp(box_w) * stride;
@@ -602,7 +602,7 @@ static int process_yolox_i8(int8_t *input, int grid_h, int grid_w, int height, i
                     box_x -= (box_w / 2.0);
                     box_y -= (box_h / 2.0);
 
-                    // YOLOX scoring: objectness * class_score
+                    // Simplified YOLO scoring: objectness * class_score
                     objProbs.push_back(deqnt_affine_to_f32(maxClassProbs, zp, scale) * 
                                      deqnt_affine_to_f32(box_confidence, zp, scale));
                     classId.push_back(maxClassId);
@@ -618,9 +618,9 @@ static int process_yolox_i8(int8_t *input, int grid_h, int grid_w, int height, i
     return validCount;
 }
 
-static int process_yolox_fp32(float *input, int grid_h, int grid_w, int height, int width, int stride,
-                             std::vector<float> &boxes, std::vector<float> &objProbs, std::vector<int> &classId, 
-                             float threshold)
+static int process_simplified_yolo_fp32(float *input, int grid_h, int grid_w, int height, int width, int stride,
+                                        std::vector<float> &boxes, std::vector<float> &objProbs, std::vector<int> &classId, 
+                                        float threshold)
 {
     int validCount = 0;
     int grid_len = grid_h * grid_w;
@@ -656,7 +656,7 @@ static int process_yolox_fp32(float *input, int grid_h, int grid_w, int height, 
                 }
                 
                 if (maxClassProbs > threshold) {
-                    // YOLOX scoring: objectness * class_score
+                    // Simplified YOLO scoring: objectness * class_score
                     objProbs.push_back(maxClassProbs * box_confidence);
                     classId.push_back(maxClassId);
                     validCount++;
@@ -672,13 +672,13 @@ static int process_yolox_fp32(float *input, int grid_h, int grid_w, int height, 
 }
 
 // Forward declarations for different processing paths
-static int process_yolov8_outputs(rknn_app_context_t *app_ctx, void *outputs, 
-                                  std::vector<float> &filterBoxes, std::vector<float> &objProbs, 
-                                  std::vector<int> &classId, float conf_threshold);
+static int process_standard_yolo_outputs(rknn_app_context_t *app_ctx, void *outputs, 
+                                         std::vector<float> &filterBoxes, std::vector<float> &objProbs, 
+                                         std::vector<int> &classId, float conf_threshold);
 
-static int process_yolox_outputs(rknn_app_context_t *app_ctx, void *outputs,
-                                 std::vector<float> &filterBoxes, std::vector<float> &objProbs,
-                                 std::vector<int> &classId, float conf_threshold);
+static int process_simplified_yolo_outputs(rknn_app_context_t *app_ctx, void *outputs,
+                                           std::vector<float> &filterBoxes, std::vector<float> &objProbs,
+                                           std::vector<int> &classId, float conf_threshold);
 
 int post_process(rknn_app_context_t *app_ctx, void *outputs, letterbox_t *letter_box, float conf_threshold, float nms_threshold, object_detect_result_list *od_results)
 {
@@ -692,12 +692,12 @@ int post_process(rknn_app_context_t *app_ctx, void *outputs, letterbox_t *letter
     memset(od_results, 0, sizeof(object_detect_result_list));
 
     // Dispatch to appropriate processing function based on model type
-    if (app_ctx->model_type == YOLO_X) {
-        printf("Processing YOLOX outputs\n");
-        validCount = process_yolox_outputs(app_ctx, outputs, filterBoxes, objProbs, classId, conf_threshold);
+    if (app_ctx->model_type == YOLO_SIMPLIFIED) {
+        printf("Processing Simplified YOLO outputs\n");
+        validCount = process_simplified_yolo_outputs(app_ctx, outputs, filterBoxes, objProbs, classId, conf_threshold);
     } else {
-        printf("Processing YOLOv8 outputs\n");
-        validCount = process_yolov8_outputs(app_ctx, outputs, filterBoxes, objProbs, classId, conf_threshold);
+        printf("Processing Standard YOLO outputs\n");
+        validCount = process_standard_yolo_outputs(app_ctx, outputs, filterBoxes, objProbs, classId, conf_threshold);
     }
 
     // no object detect
@@ -760,10 +760,10 @@ int post_process(rknn_app_context_t *app_ctx, void *outputs, letterbox_t *letter
     return 0;
 }
 
-// YOLOv8 processing function (original implementation)
-static int process_yolov8_outputs(rknn_app_context_t *app_ctx, void *outputs, 
-                                  std::vector<float> &filterBoxes, std::vector<float> &objProbs, 
-                                  std::vector<int> &classId, float conf_threshold)
+// Standard YOLO processing function (DFL-based implementation)
+static int process_standard_yolo_outputs(rknn_app_context_t *app_ctx, void *outputs, 
+                                         std::vector<float> &filterBoxes, std::vector<float> &objProbs, 
+                                         std::vector<int> &classId, float conf_threshold)
 {
 #if defined(RV1106_1103) 
     rknn_tensor_mem **_outputs = (rknn_tensor_mem **)outputs;
@@ -861,10 +861,10 @@ static int process_yolov8_outputs(rknn_app_context_t *app_ctx, void *outputs,
     return validCount;
 }
 
-// YOLOX processing function (new implementation)
-static int process_yolox_outputs(rknn_app_context_t *app_ctx, void *outputs,
-                                 std::vector<float> &filterBoxes, std::vector<float> &objProbs,
-                                 std::vector<int> &classId, float conf_threshold)
+// Simplified YOLO processing function (unified tensor implementation)
+static int process_simplified_yolo_outputs(rknn_app_context_t *app_ctx, void *outputs,
+                                           std::vector<float> &filterBoxes, std::vector<float> &objProbs,
+                                           std::vector<int> &classId, float conf_threshold)
 {
 #if defined(RV1106_1103) 
     rknn_tensor_mem **_outputs = (rknn_tensor_mem **)outputs;
@@ -886,8 +886,8 @@ static int process_yolox_outputs(rknn_app_context_t *app_ctx, void *outputs,
         stride = model_in_h / grid_h;
         
         if (app_ctx->is_quant) {
-            validCount += process_yolox_i8((int8_t *)_outputs[i]->virt_addr, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
-                                          classId, conf_threshold, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale);
+            validCount += process_simplified_yolo_i8((int8_t *)_outputs[i]->virt_addr, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
+                                                    classId, conf_threshold, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale);
         }
         else
         {
@@ -901,13 +901,13 @@ static int process_yolox_outputs(rknn_app_context_t *app_ctx, void *outputs,
 
         if (app_ctx->is_quant)
         {
-            validCount += process_yolox_u8((uint8_t *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
-                                          classId, conf_threshold, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale);
+            validCount += process_simplified_yolo_u8((uint8_t *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
+                                                    classId, conf_threshold, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale);
         }
         else
         {
-            validCount += process_yolox_fp32((float *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
-                                            classId, conf_threshold);
+            validCount += process_simplified_yolo_fp32((float *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
+                                                      classId, conf_threshold);
         }
 #else
         grid_h = app_ctx->output_attrs[i].dims[2];
@@ -916,13 +916,13 @@ static int process_yolox_outputs(rknn_app_context_t *app_ctx, void *outputs,
 
         if (app_ctx->is_quant)
         {
-            validCount += process_yolox_i8((int8_t *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
-                                          classId, conf_threshold, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale);
+            validCount += process_simplified_yolo_i8((int8_t *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
+                                                    classId, conf_threshold, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale);
         }
         else
         {
-            validCount += process_yolox_fp32((float *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
-                                            classId, conf_threshold);
+            validCount += process_simplified_yolo_fp32((float *)_outputs[i].buf, grid_h, grid_w, model_in_h, model_in_w, stride, filterBoxes, objProbs,
+                                                      classId, conf_threshold);
         }
 #endif
     }

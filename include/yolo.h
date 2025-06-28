@@ -12,9 +12,9 @@
 
 // YOLO model type enumeration
 typedef enum {
-    YOLO_V8,    // YOLOv8 with DFL encoding and separate box/score tensors
-    YOLO_X,     // YOLOX with unified tensors and objectness scoring
-    YOLO_UNKNOWN // Unknown or unsupported model type
+    YOLO_STANDARD,    // Standard YOLO with DFL encoding and separate box/score tensors
+    YOLO_SIMPLIFIED,  // Simplified YOLO with unified tensors and objectness scoring
+    YOLO_UNKNOWN     // Unknown or unsupported model type
 } yolo_model_type_t;
 
 typedef struct {
