@@ -117,6 +117,8 @@ int main(int argc, char **argv) {
 
         // Create formatters
         auto json_formatter = std::make_shared<JsonMessageFormatter>(suppress_empty);
+        auto faces_json_formatter = std::make_shared<FacesJsonMessageFormatter>();
+        auto faces_bs_formatter = std::make_shared<FacesBSMessageFormatter>();
         
         // Create file publisher using transport injection
         auto file_transport = std::make_shared<FileTransport>("/tmp/results.json");
@@ -127,8 +129,25 @@ int main(int argc, char **argv) {
             json_formatter,
             1); // Write to file once per second
 
+        // Create UDP publishers for faces data
+        UDPPublisher udp_json_publisher(
+            "127.0.0.1", 5002,
+            resultQueue,
+            running,
+            faces_json_formatter,
+            1); // Send JSON to port 5002
+
+        UDPPublisher udp_bs_publisher(
+            "127.0.0.1", 5000,
+            resultQueue,
+            running,
+            faces_bs_formatter,
+            1); // Send BrightScript to port 5000
+
         std::thread inferenceThread(std::ref(mlThread));
         std::thread file_publisherThread(std::ref(file_publisher));
+        std::thread udp_json_publisherThread(std::ref(udp_json_publisher));
+        std::thread udp_bs_publisherThread(std::ref(udp_bs_publisher));
 
         while (running) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -140,6 +159,8 @@ int main(int argc, char **argv) {
 
         inferenceThread.join();
         file_publisherThread.join();
+        udp_json_publisherThread.join();
+        udp_bs_publisherThread.join();
     }
 
     return 0;

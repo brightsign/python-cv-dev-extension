@@ -1,0 +1,7 @@
+# this file is used to set up the Python environment for the BrightSign extension
+# it should be sourced in the shell before running any Python scripts
+
+# Set up Python environment for BrightSign extension
+export PYTHONPATH="/var/volatile/bsext/ext_npu_yolo/usr/lib/python3.8:/var/volatile/bsext/ext_npu_yolo/usr/lib/python3.8/site-packages:$PYTHONPATH"
+export PATH="/var/volatile/bsext/ext_npu_yolo/usr/bin:$PATH"
+export LD_LIBRARY_PATH="/var/volatile/bsext/ext_npu_yolo/usr/lib:$LD_LIBRARY_PATH"

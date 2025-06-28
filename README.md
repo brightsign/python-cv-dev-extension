@@ -8,9 +8,11 @@ BSMP are delivered as an BrightSign OS (BOS) "extension." Extensions are deliver
 
 | player | minimum OS Version required |
 | --- | --- |
-| XT-5: XT1145, XT2145 | [9.0.189](https://brightsignbiz.s3.amazonaws.com/firmware/xd5/9.0/9.0.189/brightsign-xd5-update-9.0.189.zip) |
-| Firebird | [BETA-9.1.49](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.149-BETA/BETA-cobra-9.1.49-update.bsfw) |
-| LS-5: LS445 | [BETA-9.1.49](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.149-BETA/BETA-cobra-9.1.49-update.bsfw) |
+| XT-5: XT1145, XT2145 | [9.1.52](https://brightsignbiz.s3.amazonaws.com/firmware/xd5/9.1/9.1.52/brightsign-xd5-update-9.1.52.zip) |
+| _Firebird_ | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
+| _LS-5: LS445_ | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
+
+**NOTE-** This guide is written **ONLY** for the XT-5. Supporting Firebird or LS-5 is a straightforward exercise for the motivated reader.
 
 ## Supported Cameras
 
@@ -33,20 +35,37 @@ For this exercise, the Yolov8 model from the [Rockchip Model Zoo](https://github
 
 ## Application Overview
 
-This project will create an installable BrightSign Extension that:
+This project will create an installable BrightSign Extension that supports two operational modes:
 
-1. Loads the compiled model into the RK3588 NPU
-2. Acquires images from an attached Video for Linux (v4l) device such as a USB webcam (using OpenCV)
-3. Runs the model for each captured image to detect objects with person class in the image
-4. Save the decorated image (overwriting any previous image) to `/tmp/output.jpg`
-5. Write the inference result object to `/tmp/results.json`
+### V4L Device Mode (Continuous Inference)
+
+When provided with a Video for Linux device (e.g., `/dev/video0`), the extension:
+
+1. Loads the compiled model into the Rockchip NPU
+2. Continuously captures video frames from an attached USB webcam using OpenCV
+3. Runs YOLO object detection on each frame at ~30 FPS
+4. Continuously updates the decorated image to `/tmp/output.jpg`
+5. Writes inference results to `/tmp/results.json` once per second
+6. Publishes person detection data via UDP to localhost ports 5002 and 5003
+
+### One-Shot Image Mode (Single Inference)
+
+When provided with an image file path (e.g., `/tmp/input.jpg`), the extension:
+
+1. Loads the compiled model into the Rockchip NPU
+2. Processes the single input image file
+3. Runs YOLO object detection once on the provided image
+4. Saves the decorated result image to `/tmp/output.jpg`
+5. Writes the inference results to `/tmp/results.json`
+6. Exits after processing
 
 ### Extension Control
 
-This extension allows two, optional registry keys to be set to
+This extension allows three optional registry keys to be set to customize behavior:
 
 * Disable the auto-start of the extension -- this can be useful in debugging or other problems
 * Set the `v4l` device filename to override the auto-discovered device
+* Set a custom model path to use different YOLO models
 
 **Registry keys are organized in the `extension` section**
 
@@ -54,6 +73,7 @@ This extension allows two, optional registry keys to be set to
 | --- | --- | --- |
 | `bsext-yolo-auto-start` | `true` or `false` | when truthy, disables the extension from autostart (`bsext_init start` will simply return). The extension can still be manually run with `bsext_init run` |
 | `bsext-yolo-video-device` | a valid v4l device file name like `/dev/video0` or `/dev/video1` | normally not needed, but may be useful to override for some unusual or test condition |
+| `bsext-yolo-model-path` | full path to a `.rknn` model file | allows using custom YOLO models instead of the default `yolov8n.rknn` |
 
 ## Project Overview & Requirements
 
@@ -127,12 +147,12 @@ cd -
 
 The platform SDK can be built from public sources. Browse OS releases from the [BrightSign Open Source](https://docs.brightsign.biz/releases/brightsign-open-source) page.  Set the environment variable in the next code block to the desired os release version.
 
-```sh
+```sh {"promptEnv":"never"}
 # Download BrightSign OS and extract
 cd "${project_root:-.}"
 
-export BRIGHTSIGN_OS_MAJOR_VERION=9.0
-export BRIGHTSIGN_OS_MINOR_VERION=189
+export BRIGHTSIGN_OS_MAJOR_VERION=9.1
+export BRIGHTSIGN_OS_MINOR_VERION=52
 export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_MAJOR_VERION}.${BRIGHTSIGN_OS_MINOR_VERION}
 
 wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-dl.tar.gz
@@ -188,7 +208,7 @@ You can access the SDK from BrightSign.  The SDK is a shell script that will ins
 cd "${project_root:-}"
 
 # copy the SDK to the project root
-cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-9.0.189.sh ./
+cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.sh ./
 
 # can safely remove the source if you want to save space
 #rm -rf brightsign-oe
@@ -197,7 +217,7 @@ cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-9.
 ```sh
 cd "${project_root:-.}"
 
-./brightsign-x86_64-cobra-toolchain-9.0.189.sh  -d ./sdk -y
+./brightsign-x86_64-cobra-toolchain-*.sh  -d ./sdk -y
 # installs the sdk to ./sdk
 ```
 
@@ -299,7 +319,7 @@ sudo apt install -y \
 
 ```
 
-**FIRST**: Copy this entire project tree to the OPi
+**FIRST**: Copy this entire project tree to the OPi. In particular, you'll need the compiled model from above as you cannot compile the model on the OrangePI (ARM architecture).
 
 ___Unless otherwise noted all commands in this section are executed on the OrangePi -- via ssh or other means___
 
@@ -333,43 +353,11 @@ cd "${project_root:-.}"
 source ./sdk/environment-setup-aarch64-oe-linux
 
 # this command can be used to clean old builds
-rm -rf build_xt5
+#rm -rf build_xt5
 
 mkdir -p build_xt5 && cd $_
 
 cmake .. -DOECORE_TARGET_SYSROOT="${OECORE_TARGET_SYSROOT}" -DTARGET_SOC="rk3588" 
-make
-
-#rm -rf ../install
-make install
-```
-
-```sh
-cd "${project_root:-.}"
-source ./sdk/environment-setup-aarch64-oe-linux
-
-# this command can be used to clean old builds
-#rm -rf build_firebird
-
-mkdir -p build_firebird && cd $_
-
-cmake .. -DOECORE_TARGET_SYSROOT="${OECORE_TARGET_SYSROOT}" -DTARGET_SOC="rk3576" 
-make
-
-#rm -rf ../install
-make install
-```
-
-```sh
-cd "${project_root:-.}"
-source ./sdk/environment-setup-aarch64-oe-linux
-
-# this command can be used to clean old builds
-#rm -rf build_ls5
-
-mkdir -p build_ls5 && cd $_
-
-cmake .. -DOECORE_TARGET_SYSROOT="${OECORE_TARGET_SYSROOT}" -DTARGET_SOC="rk3568" 
 make
 
 #rm -rf ../install
@@ -496,19 +484,23 @@ umount /var/volatile/bsext/ext_npu_yolo
 rm -rf /var/volatile/bsext/ext_npu_yolo
 
 # remove the extension from the system
-lvremove --yes /dev/mapper/bsext_npu_yolo
-# if that path does not exist, you can try
 lvremove --yes /dev/mapper/bsos-ext_npu_yolo
 
+# rm -rf /dev/mapper/bsext_npu_yolo
 rm -rf /dev/mapper/bsos-ext_npu_yolo
 
-reboot
+# reboot
+echo "Uninstallation complete. Please reboot your device to finalize the changes."
 ```
 
-For convenience, an `uninstall.sh` script is packaged with the extension and can be run from the player shell.
+For convenience, an `uninstall.sh` script is packaged with the extension and can be run from the player shell.  **However**, you cannot simply run the script from the extension volume as that will lock the mount.  Copy to an executable mount first.
 
 ```bash
-/var/volatile/bsext/ext_npu_yolo/uninstall.sh
+# copy the uninstall script to a location where it can be run
+cp /var/volatile/bsext/ext_npu_yolo/uninstall.sh /usr/local/
+/usr/bin/chmod +x /usr/local/uninstall.sh
+/usr/local/uninstall.sh
+
 # will remove the extension from the system
 
 # reboot to apply changes

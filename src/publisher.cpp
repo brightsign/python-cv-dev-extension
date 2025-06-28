@@ -62,6 +62,46 @@ std::string BSVariableMessageFormatter::formatMessage(const InferenceResult& res
     return message;
 }
 
+// Implementation of the FacesJsonMessageFormatter
+std::string FacesJsonMessageFormatter::formatMessage(const InferenceResult& result) {
+    json j;
+    
+    // Count people (class_id == 0)
+    int people_count = 0;
+    for (int i = 0; i < result.detections.count; ++i) {
+        const auto& detection = result.detections.results[i];
+        if (detection.cls_id == 0) { // "person" class
+            people_count++;
+        }
+    }
+    
+    // Map people count to faces properties (doubling up as requested)
+    j["faces_in_frame_total"] = people_count;
+    j["faces_attending"] = people_count;
+    j["timestamp"] = std::chrono::system_clock::to_time_t(result.timestamp);
+    
+    return j.dump();
+}
+
+// Implementation of the FacesBSMessageFormatter  
+std::string FacesBSMessageFormatter::formatMessage(const InferenceResult& result) {
+    // Count people (class_id == 0)
+    int people_count = 0;
+    for (int i = 0; i < result.detections.count; ++i) {
+        const auto& detection = result.detections.results[i];
+        if (detection.cls_id == 0) { // "person" class
+            people_count++;
+        }
+    }
+    
+    // Map people count to faces properties in BrightScript format
+    std::string message = 
+        "faces_in_frame_total:" + std::to_string(people_count) + "!!" +
+        "faces_attending:" + std::to_string(people_count) + "!!" +
+        "timestamp:" + std::to_string(std::chrono::system_clock::to_time_t(result.timestamp));
+    return message;
+}
+
 // Generic Publisher implementation
 Publisher::Publisher(
         std::shared_ptr<Transport> transport,

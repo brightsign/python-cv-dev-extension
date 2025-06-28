@@ -13,7 +13,8 @@
       "Bash(python3:*)",
       "Bash(cp:*)",
       "Bash(cat:*)",
-      "Bash(./build/yolo_demo:*)"
+      "Bash(./build/yolo_demo:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

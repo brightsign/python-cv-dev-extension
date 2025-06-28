@@ -34,6 +34,20 @@ public:
     std::string formatMessage(const InferenceResult& result) override;
 };
 
+// Concrete implementation for faces JSON format (UDP port 5002)
+// Maps people count to faces_* properties
+class FacesJsonMessageFormatter : public MessageFormatter {
+public:
+    std::string formatMessage(const InferenceResult& result) override;
+};
+
+// Concrete implementation for faces BrightScript format (UDP port 5000)  
+// Maps people count to faces_* properties in BrightScript format
+class FacesBSMessageFormatter : public MessageFormatter {
+public:
+    std::string formatMessage(const InferenceResult& result) override;
+};
+
 
 // Generic publisher class using transport injection
 class Publisher {

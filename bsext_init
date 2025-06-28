@@ -71,6 +71,24 @@ get_video_device() {
     echo "${VID_DEVID}"
 }
 
+get_model_path() {
+    SOC_NAME=$(get_soc_name)
+    SOC_HOME=${SCRIPT_PATH}/${SOC_NAME}
+    
+    # Default model path
+    MODEL_PATH="${SOC_HOME}/model/yolov8n.rknn"
+    
+    # check registry for model path
+    # allows user to override the default model path
+    reg_model_path=$(registry extension ${DAEMON_NAME}-model-path)
+    if [ -n "${reg_model_path}" ]; then
+        MODEL_PATH=${reg_model_path}
+    fi
+    
+    # Return the model path
+    echo "${MODEL_PATH}"
+}
+
 
 # Common function to run the attention demo
 run_yolo_demo() {
@@ -82,7 +100,7 @@ run_yolo_demo() {
     SOC_HOME=${SCRIPT_PATH}/${SOC_NAME}
     cd ${SOC_HOME}
 
-    CMD_ARGS="${SOC_HOME}/model/yolov8n.rknn $(get_video_device)"
+    CMD_ARGS="$(get_model_path) $(get_video_device)"
     echo "Using Model and Device: ${CMD_ARGS}"
     
     # Default to running in foreground
