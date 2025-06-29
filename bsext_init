@@ -76,7 +76,7 @@ get_model_path() {
     SOC_HOME=${SCRIPT_PATH}/${SOC_NAME}
     
     # Default model path
-    MODEL_PATH="${SOC_HOME}/model/yolov8n.rknn"
+    MODEL_PATH="${SOC_HOME}/model/yolox_s.rknn"
     
     # check registry for model path
     # allows user to override the default model path
@@ -93,8 +93,6 @@ get_model_path() {
 # Common function to run the attention demo
 run_yolo_demo() {
     # Get command arguments from setup function
-    # CMD_ARGS=$(get_runtime_args)
-    # echo "Using Model and Device: ${CMD_ARGS}"
 
     SOC_NAME=$(get_soc_name)
     SOC_HOME=${SCRIPT_PATH}/${SOC_NAME}
@@ -124,7 +122,7 @@ do_start() {
         DISABLE_AUTO_START=${reg_disable_auto_start}
     fi
 
-    if [ "${DISABLE_AUTO_START}" = "true" ]; then
+    if [[ "${DISABLE_AUTO_START,,}" =~ ^(true|yes|1)$ ]]; then
         echo "Auto-start is disabled for ${DAEMON_NAME}"
         return
     fi

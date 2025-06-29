@@ -38,44 +38,67 @@ yolo_model_type_t detect_yolo_model_type(rknn_app_context_t *app_ctx)
         return YOLO_UNKNOWN;
     }
 
-    // Standard YOLO typically has 3 outputs with different channel counts for different scales
-    // Simplified YOLO typically has 3 outputs with unified format: [batch, height, width, 85] (85 = 4 box + 1 obj + 80 classes)
-    // Let's analyze the output tensor shapes to determine the model type
+    // Model type detection based on output structure:
+    // - Standard YOLO (YOLOX): 3 outputs with 85 channels each [1, 85, H, W]
+    // - Simplified YOLO (YoloV8): 9 outputs with different structure:
+    //   * 3 box regression outputs (64 channels each): [1, 64, H, W]  
+    //   * 3 class prediction outputs (80 channels each): [1, 80, H, W]
+    //   * 3 objectness outputs (1 channel each): [1, 1, H, W]
     
-    if (app_ctx->io_num.n_output == 3) {
-        // Check first output tensor dimensions
-        rknn_tensor_attr *first_output = &app_ctx->output_attrs[0];
-        
-        if (first_output->n_dims == 4) {
-            // For Standard YOLO: typically [1, channels, height, width] where channels varies by scale
-            // For Simplified YOLO: typically [1, height, width, 85]
-            
-            int last_dim = first_output->dims[first_output->n_dims - 1];
-            
-            // Simplified YOLO characteristic: last dimension is 85 (4 box + 1 objectness + 80 classes)
-            if (last_dim == 85 || last_dim == (4 + 1 + OBJ_CLASS_NUM)) {
-                printf("Model type detection: Simplified YOLO format detected (last dim: %d)\n", last_dim);
-                return YOLO_SIMPLIFIED;
-            }
-            
-            // Standard YOLO characteristic: channels dimension varies, but not 85
-            // Standard YOLO usually has separate box and score tensors or DFL-encoded outputs
-            if (first_output->fmt == RKNN_TENSOR_NCHW) {
-                int channels = first_output->dims[1];
-                printf("Model type detection: Standard YOLO format detected (NCHW, channels: %d)\n", channels);
-                return YOLO_STANDARD;
-            } else if (first_output->fmt == RKNN_TENSOR_NHWC) {
-                int channels = first_output->dims[3];
-                // Standard YOLO with NHWC format, channels should not be 85 for Simplified YOLO
-                if (channels != 85 && channels != (4 + 1 + OBJ_CLASS_NUM)) {
-                    printf("Model type detection: Standard YOLO format detected (NHWC, channels: %d)\n", channels);
-                    return YOLO_STANDARD;
+    int n_outputs = app_ctx->io_num.n_output;
+    
+    if (n_outputs == 3) {
+        // Standard YOLO (YOLOX) pattern: 3 outputs with 85 channels each
+        // Check if all outputs have 85 channels (4 box + 1 obj + 80 classes)
+        bool all_have_85_channels = true;
+        for (int i = 0; i < 3; i++) {
+            rknn_tensor_attr *output = &app_ctx->output_attrs[i];
+            if (output->n_dims == 4 && output->fmt == RKNN_TENSOR_NCHW) {
+                int channels = output->dims[1];
+                if (channels != 85) {
+                    all_have_85_channels = false;
+                    break;
                 }
+            } else {
+                all_have_85_channels = false;
+                break;
             }
+        }
+        
+        if (all_have_85_channels) {
+            printf("Model type detection: Standard YOLO format detected (3 outputs, 85 channels each)\n");
+            return YOLO_STANDARD;
+        }
+    }
+    else if (n_outputs == 9) {
+        // Simplified YOLO (YoloV8) pattern: 9 outputs in groups of 3
+        // Expected pattern: 64-channel, 80-channel, 1-channel outputs repeated 3 times
+        bool is_yolov8_pattern = true;
+        int expected_channels[] = {64, 80, 1}; // Pattern repeated 3 times
+        
+        for (int i = 0; i < 9; i++) {
+            rknn_tensor_attr *output = &app_ctx->output_attrs[i];
+            int expected_ch = expected_channels[i % 3];
+            
+            if (output->n_dims == 4 && output->fmt == RKNN_TENSOR_NCHW) {
+                int channels = output->dims[1];
+                if (channels != expected_ch) {
+                    is_yolov8_pattern = false;
+                    break;
+                }
+            } else {
+                is_yolov8_pattern = false;
+                break;
+            }
+        }
+        
+        if (is_yolov8_pattern) {
+            printf("Model type detection: Simplified YOLO format detected (9 outputs, YoloV8 pattern)\n");
+            return YOLO_SIMPLIFIED;
         }
     }
     
-    printf("Model type detection: Unable to determine model type, defaulting to Standard YOLO\n");
+    printf("Model type detection: Unable to determine model type (outputs: %d), defaulting to Standard YOLO\n", n_outputs);
     return YOLO_STANDARD;  // Default to Standard YOLO for backwards compatibility
 }
 

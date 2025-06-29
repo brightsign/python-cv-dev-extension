@@ -28,8 +28,8 @@ This extension supports two YOLO model types with automatic detection:
 
 | Model Type | Description | Processing Path |
 |------------|-------------|-----------------|
-| **YOLO Simplified** | Latest YOLO architecture with DFL (Distribution Focal Loss) | `YOLO_SIMPLIFIED` - Uses DFL-based post-processing with separated tensor outputs |
-| **YOLOX** | YOLO with simplified unified tensor format | `YOLO_STANDARD` - Uses unified tensor processing with exponential coordinate transforms |
+| __YOLO Simplified__ | Latest YOLO architecture with DFL (Distribution Focal Loss) | `YOLO_SIMPLIFIED` - Uses DFL-based post-processing with separated tensor outputs |
+| __YOLOX__ | YOLO with unified tensor format | `YOLO_STANDARD` - Uses unified tensor processing with exponential coordinate transforms |
 
 The system automatically detects the model type based on output tensor structure and applies the appropriate post-processing pipeline. No manual configuration is required.
 
@@ -140,8 +140,8 @@ sudo apt-get update && sudo apt-get install -y \
 
 ```bash
 #cd path/to/your/directory
-git clone git@github.com:scottrfrancis/cv-npu-yolo-object-detect.git
-cd cv-npu-yolo-object-detect
+git clone git@github.com:brightsign/brightsign-npu-yolox.git
+cd brightsign-npu-yolox
 
 export project_root=$(pwd)
 # this environment variable is used in the following scripts to refer to the root of the project
@@ -263,11 +263,17 @@ wget https://github.com/airockchip/rknn-toolkit2/blob/v2.3.2/rknpu2/runtime/Linu
 
 ```bash
 => setenv SECURE_CHECKS 0
-=> envsave
+=> env save
 => printenv
 ```
 
 Verify that `SECURE_CHECKS` is set to 0. And type `reboot`.
+
+To enable `Ctl-C` in the ssh session, set the debug registry key from the **Registry** tab on DWS.
+
+```bash
+registry write brightscript debug 1
+```
 
 On some newer OS versions, the tool `disable_security_checks` is availabe that will handle the above for you.
 
@@ -328,7 +334,7 @@ mkdir -p ../../install/RK3588/model
 cp examples/yolov8/model/RK3588/yolov8n.rknn ../../install/RK3588/model/
 cp examples/yolox/model/RK3588/yolox_s.rknn ../../install/RK3588/model/
 # copy the labels (both models use COCO labels)
-cp examples/yolov8/model/coco_80_labels_list.txt ../../install/RK3588/model/
+cp examples/yolox/model/coco_80_labels_list.txt ../../install/RK3588/model/
 ```
 
 **The necessary binaries (model, libraries) are now in the `install` directory of the project**
@@ -385,7 +391,7 @@ cd "${project_root:-.}"
 source ./sdk/environment-setup-aarch64-oe-linux
 
 # this command can be used to clean old builds
-rm -rf build_xt5
+# rm -rf build_xt5
 
 mkdir -p build_xt5 && cd $_
 
@@ -404,7 +410,7 @@ You can now copy that directory to the player and run it.
 
 * zip the install dir and upload to player sd card
 * ssh to player and exit to linux shell
-* expand the zip to `/usr/local/gaze` (which is mounted with exec)
+* expand the zip to `/usr/local/yolo` (which is mounted with exec)
 
 _If you are unfamiliar with this workflow or have not un-secured your player, consult BrightSign._
 
@@ -449,7 +455,7 @@ rm -rf ext_npu_yolo*
 
 ### for development
 
-* Transfer the files `ext_npu_gaze-*.zip` to an unsecured player with the _Browse_ and _Upload_ buttons from the __SD__ tab of DWS or other means.
+* Transfer the files `yolo-*.zip` to an unsecured player with the _Browse_ and _Upload_ buttons from the __SD__ tab of DWS or other means.
 * Connect to the player via ssh, telnet, or serial.
 * Type Ctl-C to drop into the BrightScript Debugger, then type `exit` to the BrightSign prompt and `exit` again to get to the linux command prompt.
 
@@ -459,7 +465,7 @@ At the command prompt, **install** the extension with:
 cd /storage/sd
 # if you have multiple builds on the card, you might want to delete old ones
 # or modify the unzip command to ONLY unzip the version you want to install
-unzip ext_npu_yolo-*.zip
+unzip yolo-*.zip
 # you may need to answer prompts to overwrite old files
 
 # if necessary, STOP the previous running extension
@@ -481,54 +487,6 @@ _this section under development_
 
 * Submit the extension to BrightSign for signing
 * Contact BrightSign
-
-## Technical Implementation Details
-
-### Model Type Detection
-
-The system automatically detects YOLO model types based on output tensor structure:
-
-- **YOLO Simplified Models**: Detected when multiple output tensors are present (box predictions, classification scores, optional score sums)
-  - Uses `YOLO_SIMPLIFIED` processing path
-  - Implements DFL (Distribution Focal Loss) post-processing
-  - Processes separated tensor outputs
-
-- **YOLOX Models**: Detected when single unified output tensor per scale is present
-  - Uses `YOLO_STANDARD` processing path  
-  - Implements unified tensor processing
-  - Uses exponential coordinate transformations
-
-### Post-Processing Architecture
-
-The codebase maintains two distinct processing pipelines:
-
-#### YOLO Simplified Pipeline (`YOLO_SIMPLIFIED`)
-- `process_simplified_yolo_*()` functions
-- DFL-based coordinate decoding
-- Separated tensor handling
-- YOLO Simplified coordinate transforms
-
-#### YOLOX Pipeline (`YOLO_STANDARD`)  
-- `process_*()` functions (process_i8, process_u8, process_fp32, process_i8_rv1106)
-- Unified tensor format processing
-- Exponential coordinate transforms: `exp(box_w) * stride`
-- YOLOX-specific scoring: `objectness * class_probability`
-
-### Platform Support
-
-| Platform | YOLO Simplified Support | YOLOX Support | Notes |
-|----------|---------------|---------------|-------|
-| **RK3588 (XT-5)** | ✅ Full | ✅ Full | Primary target platform |
-| **RK3568 (LS-5)** | ✅ Full | ✅ Full | RKNPU1 with uint8 quantization |
-| **RV1106/RV1103** | ✅ Full | ✅ Full | NHWC memory layout support |
-
-### Memory Layout Handling
-
-The implementation handles different memory layouts automatically:
-
-- **NCHW Layout** (RK3588/RK3568): Standard channel-first format
-- **NHWC Layout** (RV1106/RV1103): Channel-last format with sequential data access
-- **Quantization**: Supports both int8 and uint8 quantized models with automatic dequantization
 
 ## Licensing
 
@@ -580,10 +538,10 @@ For convenience, an `uninstall.sh` script is packaged with the extension and can
 cp /var/volatile/bsext/ext_npu_yolo/uninstall.sh /usr/local/
 /usr/bin/chmod +x /usr/local/uninstall.sh
 /usr/local/uninstall.sh
-
-# will remove the extension from the system
+# may need to run it twice if the first time fails because processes are still running
+/usr/local/uninstall.sh
 
 # reboot to apply changes
-reboot
+#reboot
 
 ```
