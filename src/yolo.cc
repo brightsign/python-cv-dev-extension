@@ -208,7 +208,7 @@ int inference_yolo_model(rknn_app_context_t *app_ctx, image_buffer_t *img, objec
     rknn_output outputs[app_ctx->io_num.n_output];
     const float nms_threshold = NMS_THRESH;      // Default NMS threshold
     const float box_conf_threshold = BOX_THRESH; // Default confidence threshold
-    int bg_color = 114;  // Default letterbox background color for YOLOv8
+    int bg_color = 114;  // Default letterbox background color for YOLO models
     
     if ((!app_ctx) || !(img) || (!od_results)) {
         return -1;

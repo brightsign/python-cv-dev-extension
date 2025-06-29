@@ -226,10 +226,9 @@ static void compute_dfl(float* tensor, int dfl_len, float* box){
     }
 }
 
-static int process_u8(uint8_t *box_tensor, int32_t box_zp, float box_scale,
-                      uint8_t *score_tensor, int32_t score_zp, float score_scale,
-                      uint8_t *score_sum_tensor, int32_t score_sum_zp, float score_sum_scale,
-                      int grid_h, int grid_w, int stride, int dfl_len,
+static int process_u8(uint8_t *input, int32_t zp, float scale, uint8_t *unused1, int32_t unused2, float unused3,
+                      uint8_t *unused4, int32_t unused5, float unused6,
+                      int grid_h, int grid_w, int stride, int unused_dfl_len,
                       std::vector<float> &boxes,
                       std::vector<float> &objProbs,
                       std::vector<int> &classId,
@@ -237,74 +236,60 @@ static int process_u8(uint8_t *box_tensor, int32_t box_zp, float box_scale,
 {
     int validCount = 0;
     int grid_len = grid_h * grid_w;
-    uint8_t score_thres_u8 = qnt_f32_to_affine_u8(threshold, score_zp, score_scale);
-    uint8_t score_sum_thres_u8 = qnt_f32_to_affine_u8(threshold, score_sum_zp, score_sum_scale);
+    uint8_t thres_u8 = qnt_f32_to_affine_u8(threshold, zp, scale);
 
-    for (int i = 0; i < grid_h; i++)
+    for (int i = 0; i < grid_h; ++i)
     {
-        for (int j = 0; j < grid_w; j++)
+        for (int j = 0; j < grid_w; ++j)
         {
-            int offset = i * grid_w + j;
-            int max_class_id = -1;
-
-            // Use score sum to quickly filter
-            if (score_sum_tensor != nullptr)
+            uint8_t box_confidence = input[4 * grid_len + i * grid_w + j];
+            if (box_confidence >= thres_u8)
             {
-                if (score_sum_tensor[offset] < score_sum_thres_u8)
+                int offset = i * grid_w + j;
+                uint8_t *in_ptr = input + offset;
+
+                uint8_t maxClassProbs = in_ptr[5 * grid_len];
+                int maxClassId = 0;
+                for (int k = 1; k < OBJ_CLASS_NUM; ++k)
                 {
-                    continue;
+                    uint8_t prob = in_ptr[(5 + k) * grid_len];
+                    if (prob > maxClassProbs)
+                    {
+                        maxClassId = k;
+                        maxClassProbs = prob;
+                    }
                 }
-            }
 
-            uint8_t max_score = -score_zp;
-            for (int c = 0; c < OBJ_CLASS_NUM; c++)
-            {
-                if ((score_tensor[offset] > score_thres_u8) && (score_tensor[offset] > max_score))
+                if (maxClassProbs > thres_u8)
                 {
-                    max_score = score_tensor[offset];
-                    max_class_id = c;
+                    float box_x = (deqnt_affine_u8_to_f32(*in_ptr, zp, scale));
+                    float box_y = (deqnt_affine_u8_to_f32(in_ptr[grid_len], zp, scale));
+                    float box_w = (deqnt_affine_u8_to_f32(in_ptr[2 * grid_len], zp, scale));
+                    float box_h = (deqnt_affine_u8_to_f32(in_ptr[3 * grid_len], zp, scale));
+                    box_x = (box_x + j) * (float)stride;
+                    box_y = (box_y + i) * (float)stride;
+                    box_w = exp(box_w) * stride;
+                    box_h = exp(box_h) * stride;
+                    box_x -= (box_w / 2.0);
+                    box_y -= (box_h / 2.0);
+
+                    objProbs.push_back((deqnt_affine_u8_to_f32(maxClassProbs, zp, scale)) * (deqnt_affine_u8_to_f32(box_confidence, zp, scale)));
+                    classId.push_back(maxClassId);
+                    validCount++;
+                    boxes.push_back(box_x);
+                    boxes.push_back(box_y);
+                    boxes.push_back(box_w);
+                    boxes.push_back(box_h);
                 }
-                offset += grid_len;
-            }
-
-            // compute box
-            if (max_score > score_thres_u8)
-            {
-                offset = i * grid_w + j;
-                float box[4];
-                float before_dfl[dfl_len * 4];
-                for (int k = 0; k < dfl_len * 4; k++)
-                {
-                    before_dfl[k] = deqnt_affine_u8_to_f32(box_tensor[offset], box_zp, box_scale);
-                    offset += grid_len;
-                }
-                compute_dfl(before_dfl, dfl_len, box);
-
-                float x1, y1, x2, y2, w, h;
-                x1 = (-box[0] + j + 0.5) * stride;
-                y1 = (-box[1] + i + 0.5) * stride;
-                x2 = (box[2] + j + 0.5) * stride;
-                y2 = (box[3] + i + 0.5) * stride;
-                w = x2 - x1;
-                h = y2 - y1;
-                boxes.push_back(x1);
-                boxes.push_back(y1);
-                boxes.push_back(w);
-                boxes.push_back(h);
-
-                objProbs.push_back(deqnt_affine_u8_to_f32(max_score, score_zp, score_scale));
-                classId.push_back(max_class_id);
-                validCount++;
             }
         }
     }
     return validCount;
 }
 
-static int process_i8(int8_t *box_tensor, int32_t box_zp, float box_scale,
-                      int8_t *score_tensor, int32_t score_zp, float score_scale,
-                      int8_t *score_sum_tensor, int32_t score_sum_zp, float score_sum_scale,
-                      int grid_h, int grid_w, int stride, int dfl_len,
+static int process_i8(int8_t *input, int32_t zp, float scale, int8_t *unused1, int32_t unused2, float unused3,
+                      int8_t *unused4, int32_t unused5, float unused6,
+                      int grid_h, int grid_w, int stride, int unused_dfl_len,
                       std::vector<float> &boxes, 
                       std::vector<float> &objProbs, 
                       std::vector<int> &classId, 
@@ -312,67 +297,56 @@ static int process_i8(int8_t *box_tensor, int32_t box_zp, float box_scale,
 {
     int validCount = 0;
     int grid_len = grid_h * grid_w;
-    int8_t score_thres_i8 = qnt_f32_to_affine(threshold, score_zp, score_scale);
-    int8_t score_sum_thres_i8 = qnt_f32_to_affine(threshold, score_sum_zp, score_sum_scale);
+    int8_t thres_i8 = qnt_f32_to_affine(threshold, zp, scale);
 
-    for (int i = 0; i < grid_h; i++)
-    {
-        for (int j = 0; j < grid_w; j++)
-        {
-            int offset = i* grid_w + j;
-            int max_class_id = -1;
+    for (int i = 0; i < grid_h; ++i) {
+        for (int j = 0; j < grid_w; ++j) {
+            int8_t box_confidence = input[4 * grid_len + i * grid_w + j];
+            if (box_confidence >= thres_i8) {
+                int offset = i * grid_w + j;
+                int8_t *in_ptr = input + offset;
 
-            // 通过 score sum 起到快速过滤的作用
-            if (score_sum_tensor != nullptr){
-                if (score_sum_tensor[offset] < score_sum_thres_i8){
-                    continue;
-                }
-            }
-
-            int8_t max_score = -score_zp;
-            for (int c= 0; c< OBJ_CLASS_NUM; c++){
-                if ((score_tensor[offset] > score_thres_i8) && (score_tensor[offset] > max_score))
+                int8_t maxClassProbs = in_ptr[5 * grid_len];
+                int maxClassId = 0;
+                for (int k = 1; k < OBJ_CLASS_NUM; ++k)
                 {
-                    max_score = score_tensor[offset];
-                    max_class_id = c;
+                    int8_t prob = in_ptr[(5 + k) * grid_len];
+                    if (prob > maxClassProbs)
+                    {
+                        maxClassId = k;
+                        maxClassProbs = prob;
+                    }
                 }
-                offset += grid_len;
-            }
 
-            // compute box
-            if (max_score> score_thres_i8){
-                offset = i* grid_w + j;
-                float box[4];
-                float before_dfl[dfl_len*4];
-                for (int k=0; k< dfl_len*4; k++){
-                    before_dfl[k] = deqnt_affine_to_f32(box_tensor[offset], box_zp, box_scale);
-                    offset += grid_len;
+                if (maxClassProbs > thres_i8)
+                {
+                    float box_x = (deqnt_affine_to_f32(*in_ptr, zp, scale));
+                    float box_y = (deqnt_affine_to_f32(in_ptr[grid_len], zp, scale));
+                    float box_w = (deqnt_affine_to_f32(in_ptr[2 * grid_len], zp, scale));
+                    float box_h = (deqnt_affine_to_f32(in_ptr[3 * grid_len], zp, scale));
+                    box_x = (box_x + j) * (float)stride;
+                    box_y = (box_y + i) * (float)stride;
+                    box_w = exp(box_w) * stride;
+                    box_h = exp(box_h) * stride;
+                    box_x -= (box_w / 2.0);
+                    box_y -= (box_h / 2.0);
+
+                    objProbs.push_back((deqnt_affine_to_f32(maxClassProbs, zp, scale)) * (deqnt_affine_to_f32(box_confidence, zp, scale)));
+                    classId.push_back(maxClassId);
+                    validCount++;
+                    boxes.push_back(box_x);
+                    boxes.push_back(box_y);
+                    boxes.push_back(box_w);
+                    boxes.push_back(box_h);
                 }
-                compute_dfl(before_dfl, dfl_len, box);
-
-                float x1,y1,x2,y2,w,h;
-                x1 = (-box[0] + j + 0.5)*stride;
-                y1 = (-box[1] + i + 0.5)*stride;
-                x2 = (box[2] + j + 0.5)*stride;
-                y2 = (box[3] + i + 0.5)*stride;
-                w = x2 - x1;
-                h = y2 - y1;
-                boxes.push_back(x1);
-                boxes.push_back(y1);
-                boxes.push_back(w);
-                boxes.push_back(h);
-
-                objProbs.push_back(deqnt_affine_to_f32(max_score, score_zp, score_scale));
-                classId.push_back(max_class_id);
-                validCount ++;
             }
         }
     }
     return validCount;
 }
 
-static int process_fp32(float *box_tensor, float *score_tensor, float *score_sum_tensor, 
-                        int grid_h, int grid_w, int stride, int dfl_len,
+static int process_fp32(float *input, float *unused1, float *unused2, 
+                        int grid_h, int grid_w, int stride, int unused_dfl_len,
                         std::vector<float> &boxes, 
                         std::vector<float> &objProbs, 
                         std::vector<int> &classId, 
@@ -380,56 +354,48 @@ static int process_fp32(float *box_tensor, float *score_tensor, float *score_sum
 {
     int validCount = 0;
     int grid_len = grid_h * grid_w;
+
     for (int i = 0; i < grid_h; i++)
     {
         for (int j = 0; j < grid_w; j++)
         {
-            int offset = i* grid_w + j;
-            int max_class_id = -1;
+            float box_confidence = input[4 * grid_len + i * grid_w + j];
+            if (box_confidence >= threshold)
+            {
+                int offset = i * grid_w + j;
+                float *in_ptr = input + offset;
+                float box_x = *in_ptr;
+                float box_y = in_ptr[grid_len];
+                float box_w = in_ptr[2 * grid_len];
+                float box_h = in_ptr[3 * grid_len];
+                box_x = (box_x + j) * (float)stride;
+                box_y = (box_y + i) * (float)stride;
+                box_w = exp(box_w) * stride;
+                box_h = exp(box_h) * stride;
+                box_x -= (box_w / 2.0);
+                box_y -= (box_h / 2.0);
 
-            // 通过 score sum 起到快速过滤的作用
-            if (score_sum_tensor != nullptr){
-                if (score_sum_tensor[offset] < threshold){
-                    continue;
-                }
-            }
-
-            float max_score = 0;
-            for (int c= 0; c< OBJ_CLASS_NUM; c++){
-                if ((score_tensor[offset] > threshold) && (score_tensor[offset] > max_score))
+                float maxClassProbs = in_ptr[5 * grid_len];
+                int maxClassId = 0;
+                for (int k = 1; k < OBJ_CLASS_NUM; ++k)
                 {
-                    max_score = score_tensor[offset];
-                    max_class_id = c;
+                    float prob = in_ptr[(5 + k) * grid_len];
+                    if (prob > maxClassProbs)
+                    {
+                        maxClassId = k;
+                        maxClassProbs = prob;
+                    }
                 }
-                offset += grid_len;
-            }
-
-            // compute box
-            if (max_score> threshold){
-                offset = i* grid_w + j;
-                float box[4];
-                float before_dfl[dfl_len*4];
-                for (int k=0; k< dfl_len*4; k++){
-                    before_dfl[k] = box_tensor[offset];
-                    offset += grid_len;
+                if (maxClassProbs > threshold)
+                {
+                    objProbs.push_back(maxClassProbs * box_confidence);
+                    classId.push_back(maxClassId);
+                    validCount++;
+                    boxes.push_back(box_x);
+                    boxes.push_back(box_y);
+                    boxes.push_back(box_w);
+                    boxes.push_back(box_h);
                 }
-                compute_dfl(before_dfl, dfl_len, box);
-
-                float x1,y1,x2,y2,w,h;
-                x1 = (-box[0] + j + 0.5)*stride;
-                y1 = (-box[1] + i + 0.5)*stride;
-                x2 = (box[2] + j + 0.5)*stride;
-                y2 = (box[3] + i + 0.5)*stride;
-                w = x2 - x1;
-                h = y2 - y1;
-                boxes.push_back(x1);
-                boxes.push_back(y1);
-                boxes.push_back(w);
-                boxes.push_back(h);
-
-                objProbs.push_back(max_score);
-                classId.push_back(max_class_id);
-                validCount ++;
             }
         }
     }
@@ -438,66 +404,58 @@ static int process_fp32(float *box_tensor, float *score_tensor, float *score_sum
 
 
 #if defined(RV1106_1103)
-static int process_i8_rv1106(int8_t *box_tensor, int32_t box_zp, float box_scale,
-                             int8_t *score_tensor, int32_t score_zp, float score_scale,
-                             int8_t *score_sum_tensor, int32_t score_sum_zp, float score_sum_scale,
-                             int grid_h, int grid_w, int stride, int dfl_len,
+static int process_i8_rv1106(int8_t *input, int32_t zp, float scale, int8_t *unused1, int32_t unused2, float unused3,
+                             int8_t *unused4, int32_t unused5, float unused6,
+                             int grid_h, int grid_w, int stride, int unused_dfl_len,
                              std::vector<float> &boxes,
                              std::vector<float> &objProbs,
                              std::vector<int> &classId,
                              float threshold) {
     int validCount = 0;
     int grid_len = grid_h * grid_w;
-    int8_t score_thres_i8 = qnt_f32_to_affine(threshold, score_zp, score_scale);
-    int8_t score_sum_thres_i8 = qnt_f32_to_affine(threshold, score_sum_zp, score_sum_scale);
+    int8_t thres_i8 = qnt_f32_to_affine(threshold, zp, scale);
+    const int PROP_BOX_SIZE = 5 + OBJ_CLASS_NUM; // 85 for COCO
 
-    for (int i = 0; i < grid_h; i++) {
-        for (int j = 0; j < grid_w; j++) {
-            int offset = i * grid_w + j;
-            int max_class_id = -1;
+    for (int i = 0; i < grid_h; ++i) {
+        for (int j = 0; j < grid_w; ++j) {
+            int8_t box_confidence = input[4 + (i * grid_w + j) * PROP_BOX_SIZE];
+            if (box_confidence >= thres_i8) {
+                int offset = (i * grid_w + j) * PROP_BOX_SIZE;
+                int8_t *in_ptr = input + offset;
 
-            // 通过 score sum 起到快速过滤的作用
-            if (score_sum_tensor != nullptr) {
-                //score_sum_tensor [1, 1, 80, 80]
-                if (score_sum_tensor[offset] < score_sum_thres_i8) {
-                    continue;
+                int8_t maxClassProbs = input[5 + (i * grid_w + j) * PROP_BOX_SIZE];
+                int maxClassId = 0;
+                for (int k = 1; k < OBJ_CLASS_NUM; ++k)
+                {
+                    int8_t prob = input[(5 + k) + (i * grid_w + j) * PROP_BOX_SIZE];
+                    if (prob > maxClassProbs)
+                    {
+                        maxClassId = k;
+                        maxClassProbs = prob;
+                    }
                 }
-            }
 
-            int8_t max_score = -score_zp;
-            offset = offset * OBJ_CLASS_NUM;
-            for (int c = 0; c < OBJ_CLASS_NUM; c++) {
-                if ((score_tensor[offset + c] > score_thres_i8) && (score_tensor[offset + c] > max_score)) {
-                    max_score = score_tensor[offset + c]; //80类 [1, 80, 80, 80] 3588NCHW 1106NHWC
-                    max_class_id = c;
+                if (maxClassProbs > thres_i8)
+                {
+                    float box_x = (deqnt_affine_to_f32(*in_ptr, zp, scale));
+                    float box_y = (deqnt_affine_to_f32(in_ptr[1], zp, scale));
+                    float box_w = (deqnt_affine_to_f32(in_ptr[2], zp, scale));
+                    float box_h = (deqnt_affine_to_f32(in_ptr[3], zp, scale));
+                    box_x = (box_x + j) * (float)stride;
+                    box_y = (box_y + i) * (float)stride;
+                    box_w = exp(box_w) * stride;
+                    box_h = exp(box_h) * stride;
+                    box_x -= (box_w / 2.0);
+                    box_y -= (box_h / 2.0);
+
+                    objProbs.push_back((deqnt_affine_to_f32(maxClassProbs, zp, scale)) * (deqnt_affine_to_f32(box_confidence, zp, scale)));
+                    classId.push_back(maxClassId);
+                    validCount++;
+                    boxes.push_back(box_x);
+                    boxes.push_back(box_y);
+                    boxes.push_back(box_w);
+                    boxes.push_back(box_h);
                 }
-            }
-
-            // compute box
-            if (max_score > score_thres_i8) {
-                offset = (i * grid_w + j) * 4 * dfl_len;
-                float box[4];
-                float before_dfl[dfl_len*4];
-                for (int k=0; k< dfl_len*4; k++){
-                    before_dfl[k] = deqnt_affine_to_f32(box_tensor[offset + k], box_zp, box_scale);
-                }
-                compute_dfl(before_dfl, dfl_len, box);
-
-                float x1, y1, x2, y2, w, h;
-                x1 = (-box[0] + j + 0.5) * stride;
-                y1 = (-box[1] + i + 0.5) * stride;
-                x2 = (box[2] + j + 0.5) * stride;
-                y2 = (box[3] + i + 0.5) * stride;
-                w = x2 - x1;
-                h = y2 - y1;
-                boxes.push_back(x1);
-                boxes.push_back(y1);
-                boxes.push_back(w);
-                boxes.push_back(h);
-
-                objProbs.push_back(deqnt_affine_to_f32(max_score, score_zp, score_scale));
-                classId.push_back(max_class_id);
-                validCount ++;
             }
         }
     }
@@ -795,17 +753,14 @@ static int process_standard_yolo_outputs(rknn_app_context_t *app_ctx, void *outp
             score_sum_zp = app_ctx->output_attrs[i * output_per_branch + 2].zp;
             score_sum_scale = app_ctx->output_attrs[i * output_per_branch + 2].scale;
         }
-        int box_idx = i * output_per_branch;
-        int score_idx = i * output_per_branch + 1;
-        grid_h = app_ctx->output_attrs[box_idx].dims[1];
-        grid_w = app_ctx->output_attrs[box_idx].dims[2];
+        grid_h = app_ctx->output_attrs[i].dims[1];
+        grid_w = app_ctx->output_attrs[i].dims[2];
         stride = model_in_h / grid_h;
         
         if (app_ctx->is_quant) {
-            validCount += process_i8_rv1106((int8_t *)_outputs[box_idx]->virt_addr, app_ctx->output_attrs[box_idx].zp, app_ctx->output_attrs[box_idx].scale,
-                                (int8_t *)_outputs[score_idx]->virt_addr, app_ctx->output_attrs[score_idx].zp,
-                                app_ctx->output_attrs[score_idx].scale, (int8_t *)score_sum, score_sum_zp, score_sum_scale,
-                                grid_h, grid_w, stride, dfl_len, filterBoxes, objProbs, classId, conf_threshold);
+            validCount += process_i8_rv1106((int8_t *)_outputs[i]->virt_addr, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale,
+                                nullptr, 0, 0.0, nullptr, 0, 0.0,
+                                grid_h, grid_w, stride, 0, filterBoxes, objProbs, classId, conf_threshold);
         }
         else
         {
@@ -822,38 +777,33 @@ static int process_standard_yolo_outputs(rknn_app_context_t *app_ctx, void *outp
             score_sum_zp = app_ctx->output_attrs[i*output_per_branch + 2].zp;
             score_sum_scale = app_ctx->output_attrs[i*output_per_branch + 2].scale;
         }
-        int box_idx = i*output_per_branch;
-        int score_idx = i*output_per_branch + 1;
-
 #ifdef RKNPU1
-        grid_h = app_ctx->output_attrs[box_idx].dims[1];
-        grid_w = app_ctx->output_attrs[box_idx].dims[0];
+        grid_h = app_ctx->output_attrs[i].dims[1];
+        grid_w = app_ctx->output_attrs[i].dims[0];
 #else
-        grid_h = app_ctx->output_attrs[box_idx].dims[2];
-        grid_w = app_ctx->output_attrs[box_idx].dims[3];
+        grid_h = app_ctx->output_attrs[i].dims[2];
+        grid_w = app_ctx->output_attrs[i].dims[3];
 #endif
         stride = model_in_h / grid_h;
 
         if (app_ctx->is_quant)
         {
 #ifdef RKNPU1
-            validCount += process_u8((uint8_t *)_outputs[box_idx].buf, app_ctx->output_attrs[box_idx].zp, app_ctx->output_attrs[box_idx].scale,
-                                     (uint8_t *)_outputs[score_idx].buf, app_ctx->output_attrs[score_idx].zp, app_ctx->output_attrs[score_idx].scale,
-                                     (uint8_t *)score_sum, score_sum_zp, score_sum_scale,
-                                     grid_h, grid_w, stride, dfl_len,
+            validCount += process_u8((uint8_t *)_outputs[i].buf, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale,
+                                     nullptr, 0, 0.0, nullptr, 0, 0.0,
+                                     grid_h, grid_w, stride, 0,
                                      filterBoxes, objProbs, classId, conf_threshold);
 #else
-            validCount += process_i8((int8_t *)_outputs[box_idx].buf, app_ctx->output_attrs[box_idx].zp, app_ctx->output_attrs[box_idx].scale,
-                                     (int8_t *)_outputs[score_idx].buf, app_ctx->output_attrs[score_idx].zp, app_ctx->output_attrs[score_idx].scale,
-                                     (int8_t *)score_sum, score_sum_zp, score_sum_scale,
-                                     grid_h, grid_w, stride, dfl_len, 
+            validCount += process_i8((int8_t *)_outputs[i].buf, app_ctx->output_attrs[i].zp, app_ctx->output_attrs[i].scale,
+                                     nullptr, 0, 0.0, nullptr, 0, 0.0,
+                                     grid_h, grid_w, stride, 0, 
                                      filterBoxes, objProbs, classId, conf_threshold);
 #endif
         }
         else
         {
-            validCount += process_fp32((float *)_outputs[box_idx].buf, (float *)_outputs[score_idx].buf, (float *)score_sum,
-                                       grid_h, grid_w, stride, dfl_len, 
+            validCount += process_fp32((float *)_outputs[i].buf, nullptr, nullptr,
+                                       grid_h, grid_w, stride, 0, 
                                        filterBoxes, objProbs, classId, conf_threshold);
         }
 #endif

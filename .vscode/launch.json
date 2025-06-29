@@ -9,9 +9,11 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/yolo_demo",
-            "args": ["${workspaceFolder}/build/model/yolov8n.rknn",
-                    "/dev/video0"
-                    // "${workspaceFolder}/toolkit/rknn_model_zoo/examples/yolov8/model/bus.jpg"
+            "args": [
+                    // "${workspaceFolder}/build/model/yolox_s.rknn",
+                    "${workspaceFolder}/build/model/yolov8n.rknn",
+                    // "/dev/video0"
+                    "${workspaceFolder}/toolkit/rknn_model_zoo/examples/yolov8/model/bus.jpg"
                     ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

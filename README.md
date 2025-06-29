@@ -1,6 +1,6 @@
-# BrightSign Yolo Object Detection BSMP (ALPHA RELEASE)
+# BrightSign YOLO Object Detection BSMP (ALPHA RELEASE)
 
-This is an example BrightSign Model Package (BSMP) that implements Object Detection using the Yolo framework on the BrightSign player NPU. This can be used as a template for development of other BSMP by partners and third-parties.
+This is an example BrightSign Model Package (BSMP) that implements Object Detection using YOLO frameworks (YOLO Simplified and YOLOX) on the BrightSign player NPU. This can be used as a template for development of other BSMP by partners and third-parties.
 
 BSMP are delivered as an BrightSign OS (BOS) "extension." Extensions are delivered as firmware update files that are installed on a reboot. These are basically Linux squashfs file systems that extend the firmware to include the BSMP. You can learn more about extensions in our [Extension Template Repository](https://github.com/brightsign/extension-template).
 
@@ -22,6 +22,24 @@ In general, any camera supported by Linux *should* work.  We've had great luck w
 
 Every frame of video captured is processed through the model.  Every detected object has a bounding box drawn around it.  The image is written to a file on the /tmp folder.  This is a ram disk so it will not impact the life of the storage.
 
+## Supported YOLO Models
+
+This extension supports two YOLO model types with automatic detection:
+
+| Model Type | Description | Processing Path |
+|------------|-------------|-----------------|
+| **YOLO Simplified** | Latest YOLO architecture with DFL (Distribution Focal Loss) | `YOLO_SIMPLIFIED` - Uses DFL-based post-processing with separated tensor outputs |
+| **YOLOX** | YOLO with simplified unified tensor format | `YOLO_STANDARD` - Uses unified tensor processing with exponential coordinate transforms |
+
+The system automatically detects the model type based on output tensor structure and applies the appropriate post-processing pipeline. No manual configuration is required.
+
+### Model Compatibility
+
+- ✅ **YOLO Simplified models (nano, small, medium, large, extra-large)** - Full support with DFL processing
+- ✅ **YOLOX-Nano, YOLOX-Tiny, YOLOX-S, YOLOX-M, YOLOX-L, YOLOX-X** - Full support with unified tensor processing
+- ✅ **COCO 80-class models** - Default class set supported
+- ✅ **Custom trained models** - Compatible if following YOLO Simplified or YOLOX output formats
+
 ## Overview
 
 This repository gives the steps and tools to:
@@ -31,7 +49,7 @@ This repository gives the steps and tools to:
 3. Build the AI Application for BrightSign OS
 4. Package the Application and model as a BrightSign Extension
 
-For this exercise, the Yolov8 model from the [Rockchip Model Zoo](https://github.com/airockchip/rknn_model_zoo). The application code in this repo was adapted from the example code from the Rockchip Model Zoo as well. Please ensure that you are aware of the license that your chosen model is released under. More information on model licenses can be seen [here](./model-licenses.md).
+This project supports both YOLO Simplified and YOLOX models from the [Rockchip Model Zoo](https://github.com/airockchip/rknn_model_zoo). The application code in this repo was adapted from the example code from the Rockchip Model Zoo. Please ensure that you are aware of the license that your chosen model is released under. More information on model licenses can be seen [here](./model-licenses.md).
 
 ## Application Overview
 
@@ -41,7 +59,7 @@ This project will create an installable BrightSign Extension that supports two o
 
 When provided with a Video for Linux device (e.g., `/dev/video0`), the extension:
 
-1. Loads the compiled model into the Rockchip NPU
+1. Loads the compiled YOLO model (YOLO Simplified or YOLOX) into the Rockchip NPU
 2. Continuously captures video frames from an attached USB webcam using OpenCV
 3. Runs YOLO object detection on each frame at ~30 FPS
 4. Continuously updates the decorated image to `/tmp/output.jpg`
@@ -52,7 +70,7 @@ When provided with a Video for Linux device (e.g., `/dev/video0`), the extension
 
 When provided with an image file path (e.g., `/tmp/input.jpg`), the extension:
 
-1. Loads the compiled model into the Rockchip NPU
+1. Loads the compiled YOLO model (YOLO Simplified or YOLOX) into the Rockchip NPU
 2. Processes the single input image file
 3. Runs YOLO object detection once on the provided image
 4. Saves the decorated result image to `/tmp/output.jpg`
@@ -73,7 +91,7 @@ This extension allows three optional registry keys to be set to customize behavi
 | --- | --- | --- |
 | `bsext-yolo-auto-start` | `true` or `false` | when truthy, disables the extension from autostart (`bsext_init start` will simply return). The extension can still be manually run with `bsext_init run` |
 | `bsext-yolo-video-device` | a valid v4l device file name like `/dev/video0` or `/dev/video1` | normally not needed, but may be useful to override for some unusual or test condition |
-| `bsext-yolo-model-path` | full path to a `.rknn` model file | allows using custom YOLO models instead of the default `yolov8n.rknn` |
+| `bsext-yolo-model-path` | full path to a `.rknn` model file | allows using custom YOLO models (YOLO Simplified or YOLOX) instead of the default model |
 
 ## Project Overview & Requirements
 
@@ -272,30 +290,44 @@ cd "${project_root:-.}"/toolkit/rknn-toolkit2/rknn-toolkit2/docker/docker_file/u
 docker build --rm -t rknn_tk2 -f Dockerfile_ubuntu_20_04_for_cp38 .
 ```
 
-Download the model (also only necesary one time, it will be stored in the filesystem)
+Download the models (also only necesary one time, they will be stored in the filesystem)
 
 ```sh
 cd "${project_root:-.}"/toolkit/rknn_model_zoo/
 
+# Download YOLO Simplified model
 mkdir -p examples/yolov8/model/RK3588
 pushd examples/yolov8/model
 chmod +x ./download_model.sh && ./download_model.sh
 popd
+
+# Download YOLOX model  
+mkdir -p examples/yolox/model/RK3588
+pushd examples/yolox/model
+chmod +x ./download_model.sh && ./download_model.sh
+popd
 ```
 
-Compile the model.  Note the options for various SoCs.
+Compile the models. Note the options for various SoCs.
 
 ```sh
-# for RK3588 -- XT-5 players
+# Compile YOLO Simplified for RK3588 -- XT-5 players
 cd "${project_root:-.}"/toolkit/rknn_model_zoo/
 
 mkdir -p examples/yolov8/model/RK3588
 docker run -it --rm -v $(pwd):/zoo rknn_tk2 /bin/bash \
     -c "cd /zoo/examples/yolov8/python && python convert.py ../model/yolov8n.onnx rk3588 i8 ../model/RK3588/yolov8n.rknn"
 
+# Compile YOLOX for RK3588 -- XT-5 players  
+mkdir -p examples/yolox/model/RK3588
+docker run -it --rm -v $(pwd):/zoo rknn_tk2 /bin/bash \
+    -c "cd /zoo/examples/yolox/python && python convert.py ../model/yolox_s.onnx rk3588 i8 ../model/RK3588/yolox_s.rknn"
+
+# Copy models and labels to install directory
 mkdir -p ../../install/RK3588/model
 cp examples/yolov8/model/RK3588/yolov8n.rknn ../../install/RK3588/model/
-# copy the labels
+cp examples/yolox/model/RK3588/yolox_s.rknn ../../install/RK3588/model/
+# copy the labels (both models use COCO labels)
 cp examples/yolov8/model/coco_80_labels_list.txt ../../install/RK3588/model/
 ```
 
@@ -329,7 +361,7 @@ ___Unless otherwise noted all commands in this section are executed on the Orang
 cd "${project_root:-.}"
 
 # this command can be used to clean old builds
-# rm -rf build
+rm -rf build
 
 mkdir -p build && cd $_
 
@@ -449,6 +481,54 @@ _this section under development_
 
 * Submit the extension to BrightSign for signing
 * Contact BrightSign
+
+## Technical Implementation Details
+
+### Model Type Detection
+
+The system automatically detects YOLO model types based on output tensor structure:
+
+- **YOLO Simplified Models**: Detected when multiple output tensors are present (box predictions, classification scores, optional score sums)
+  - Uses `YOLO_SIMPLIFIED` processing path
+  - Implements DFL (Distribution Focal Loss) post-processing
+  - Processes separated tensor outputs
+
+- **YOLOX Models**: Detected when single unified output tensor per scale is present
+  - Uses `YOLO_STANDARD` processing path  
+  - Implements unified tensor processing
+  - Uses exponential coordinate transformations
+
+### Post-Processing Architecture
+
+The codebase maintains two distinct processing pipelines:
+
+#### YOLO Simplified Pipeline (`YOLO_SIMPLIFIED`)
+- `process_simplified_yolo_*()` functions
+- DFL-based coordinate decoding
+- Separated tensor handling
+- YOLO Simplified coordinate transforms
+
+#### YOLOX Pipeline (`YOLO_STANDARD`)  
+- `process_*()` functions (process_i8, process_u8, process_fp32, process_i8_rv1106)
+- Unified tensor format processing
+- Exponential coordinate transforms: `exp(box_w) * stride`
+- YOLOX-specific scoring: `objectness * class_probability`
+
+### Platform Support
+
+| Platform | YOLO Simplified Support | YOLOX Support | Notes |
+|----------|---------------|---------------|-------|
+| **RK3588 (XT-5)** | ✅ Full | ✅ Full | Primary target platform |
+| **RK3568 (LS-5)** | ✅ Full | ✅ Full | RKNPU1 with uint8 quantization |
+| **RV1106/RV1103** | ✅ Full | ✅ Full | NHWC memory layout support |
+
+### Memory Layout Handling
+
+The implementation handles different memory layouts automatically:
+
+- **NCHW Layout** (RK3588/RK3568): Standard channel-first format
+- **NHWC Layout** (RV1106/RV1103): Channel-last format with sequential data access
+- **Quantization**: Supports both int8 and uint8 quantized models with automatic dequantization
 
 ## Licensing
 
