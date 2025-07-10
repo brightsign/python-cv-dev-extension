@@ -1,118 +1,37 @@
 #!/bin/bash
 ### BEGIN INIT INFO
-# Provides:          bsext-yolo
+# Provides:          bsext-pydev
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: BrightSign Yolo Object Detection Extension
-# Description:       Runs the BrightSign NPU-based Yolo Object detection service
+# Short-Description: BrightSign Python Development Extension
+# Description:       Install python3.8 and common python packages for BrightSign development.
 ### END INIT INFO
 
 # Source function library if it exists
 [ -f /etc/init.d/functions ] && . /etc/init.d/functions
 
 SCRIPT_PATH=$(dirname $(realpath $0))
-DAEMON_NAME="bsext-yolo"
+DAEMON_NAME="bsext-pydev"
 PIDFILE="/var/run/${DAEMON_NAME}.pid"
 
 # defaults -- these can be overridden by the registry
 DISABLE_AUTO_START=false
 
-# Common setup function to determine SOC model and video device
-get_soc_name() {
-    # figure out the SOC model -- default to RK3588
-    SOC_NAME=RK3588
-    if [ -f /sys/firmware/devicetree/base/compatible ]; then
-        # Use strings command to handle null bytes in devicetree properly
-        COMPATIBLE=$(strings /sys/firmware/devicetree/base/compatible)
-        
-        # Look for rockchip,rk3588 pattern in the compatible string
-        if echo "$COMPATIBLE" | grep -q "rockchip,rk3588"; then
-            SOC_NAME="RK3588"
-        fi
-
-        # Look for rockchip,rk3576 pattern in the compatible string
-        if echo "$COMPATIBLE" | grep -q "rockchip,rk3576"; then
-            SOC_NAME="RK3576"
-        fi
-
-        # Look for rockchip,rk3568 pattern in the compatible string
-        if echo "$COMPATIBLE" | grep -q "rockchip,rk3568"; then
-            SOC_NAME="RK3568"
-        fi
-    else
-        echo "WARNING: Unable to determine SOC model, EXITING"
-        exit 1
-    fi
-
-    # Return the SOC model
-    echo "${SOC_NAME}"
-}
-
-get_video_device() {
-    SOC_NAME=$(get_soc_name)
-    # For  RK3588 models
-    if [ "${SOC_NAME}" = "RK3588" ]; then
-        VID_DEVID=/dev/video1
-    else
-    # all others
-        VID_DEVID=/dev/video0
-    fi
-
-    # check registry for video device
-    # allows user to override the default video device
-    reg_video_device=$(registry extension ${DAEMON_NAME}-video-device)
-    if [ -n "${reg_video_device}" ]; then
-        VID_DEVID=${reg_video_device}
-    fi
-
-    # Return the video device
-    echo "${VID_DEVID}"
-}
-
-get_model_path() {
-    SOC_NAME=$(get_soc_name)
-    SOC_HOME=${SCRIPT_PATH}/${SOC_NAME}
-    
-    # Default model path
-    MODEL_PATH="${SOC_HOME}/model/yolox_s.rknn"
-    
-    # check registry for model path
-    # allows user to override the default model path
-    reg_model_path=$(registry extension ${DAEMON_NAME}-model-path)
-    if [ -n "${reg_model_path}" ]; then
-        MODEL_PATH=${reg_model_path}
-    fi
-    
-    # Return the model path
-    echo "${MODEL_PATH}"
-}
-
-
 # Common function to run the attention demo
-run_yolo_demo() {
-    # Get command arguments from setup function
-
-    SOC_NAME=$(get_soc_name)
-    SOC_HOME=${SCRIPT_PATH}/${SOC_NAME}
-    cd ${SOC_HOME}
-
-    CMD_ARGS="$(get_model_path) $(get_video_device)"
-    echo "Using Model and Device: ${CMD_ARGS}"
-    
+run() { }
     # Default to running in foreground
     local background=$1
     
-    export LD_LIBRARY_PATH=./lib:$LD_LIBRARY_PATH
-    if [ "$background" = "true" ]; then
-        # Run as a daemon in the background
-        start-stop-daemon --start --background --make-pidfile --pidfile ${PIDFILE} \
-                          --exec ${SOC_HOME}/yolo_demo -- ${CMD_ARGS}
-    else
-        # Run directly in foreground
-        ${SOC_HOME}/yolo_demo ${CMD_ARGS}
-    fi
+    # if [ "$background" = "true" ]; then
+    #     # Run as a daemon in the background
+    #     start-stop-daemon --start --background --make-pidfile --pidfile ${PIDFILE} \
+    #                       --exec ${SOC_HOME}/yolo_demo -- ${CMD_ARGS}
+    # else
+    #     # Run directly in foreground
+    #     ${SOC_HOME}/yolo_demo ${CMD_ARGS}
+    # fi
 }
 
 do_start() {

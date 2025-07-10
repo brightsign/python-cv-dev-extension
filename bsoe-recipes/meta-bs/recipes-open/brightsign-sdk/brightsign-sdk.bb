@@ -20,6 +20,27 @@ TOOLCHAIN_TARGET_TASK += "\
     libmicrohttpd \
     opencv \
     rockchip-rga \
+<<<<<<< HEAD
+=======
+    librknnrt \
+    python3 \
+    python3-core \
+    python3-modules \
+    python3-dev \
+    python3-numpy \
+    python3-pillow \
+    python3-opencv \
+    python3-setuptools \
+    python3-pip \
+    python3-pytest \
+    python3-flatbuffers \
+    python3-onnx \
+    python3-onnxruntime \
+    python3-torch \
+    python3-rknn-toolkit2 \
+    python3-tqdm \
+    python3-typing-extensions \
+>>>>>>> ed31513 (fix: Fix BitBake syntax errors in Python CV package recipes)
 "
 
 # The filename ends up with "toolchain" in it later (via

@@ -1,7 +1,72 @@
 # this file is used to set up the Python environment for the BrightSign extension
 # it should be sourced in the shell before running any Python scripts
 
+# Set the extension home directory
+# Note: The path can be changed based on the actual installation location of the extension.
+
+EXTENSION_HOME="$(pwd)"
+
+# pip packages may be installed here.. but they will be removed on reboot
+export PIP_PACKAGE_DIR="/usr/local/lib/python3.8/site-packages"
+mkdir -p "${PIP_PACKAGE_DIR}"
+
 # Set up Python environment for BrightSign extension
-export PYTHONPATH="/var/volatile/bsext/ext_npu_yolo/usr/lib/python3.8:/var/volatile/bsext/ext_npu_yolo/usr/lib/python3.8/site-packages:$PYTHONPATH"
-export PATH="/var/volatile/bsext/ext_npu_yolo/usr/bin:$PATH"
-export LD_LIBRARY_PATH="/var/volatile/bsext/ext_npu_yolo/usr/lib:$LD_LIBRARY_PATH"
+export PYTHONPATH="${EXTENSION_HOME}/usr/lib/python3.8:${EXTENSION_HOME}/usr/lib/python3.8/site-packages:${PIP_PACKAGE_DIR}:$PYTHONPATH"
+export PATH="${EXTENSION_HOME}/usr/bin:$PATH"
+export LD_LIBRARY_PATH="${EXTENSION_HOME}/usr/lib:$LD_LIBRARY_PATH"
+
+# Create runtime symlinks and library paths for RKNN library access
+# Since /usr is readonly, create symlinks in writable areas that RKNN can find
+if [ -f "${EXTENSION_HOME}/usr/lib/librknnrt.so" ]; then
+    # Create lib64 directory in extension for RKNN to find libraries
+    mkdir -p "${EXTENSION_HOME}/lib64"
+    ln -sf "${EXTENSION_HOME}/usr/lib/librknnrt.so" "${EXTENSION_HOME}/lib64/librknnrt.so" 2>/dev/null || true
+    
+    # Check for versioned library files and create symlinks
+    for lib_file in "${EXTENSION_HOME}/usr/lib/librknnrt.so"*; do
+        if [ -f "$lib_file" ]; then
+            lib_name=$(basename "$lib_file")
+            ln -sf "../usr/lib/$lib_name" "${EXTENSION_HOME}/lib64/$lib_name" 2>/dev/null || true
+        fi
+    done
+    
+    # Update LD_LIBRARY_PATH to include the lib64 directory
+    export LD_LIBRARY_PATH="${EXTENSION_HOME}/lib64:${LD_LIBRARY_PATH}"
+    
+    # Set environment variables that RKNN might respect
+    export RKNN_LIB_PATH="${EXTENSION_HOME}/usr/lib"
+    export EXTENSION_HOME="${EXTENSION_HOME}"
+    
+    # Create /usr/lib64 symlink if writable area exists
+    if [ -w "/usr/local" ]; then
+        mkdir -p "/usr/local/lib64" 2>/dev/null || true
+        if [ -d "/usr/local/lib64" ]; then
+            ln -sf "${EXTENSION_HOME}/usr/lib/librknnrt.so" "/usr/local/lib64/librknnrt.so" 2>/dev/null || true
+            for lib_file in "${EXTENSION_HOME}/usr/lib/librknnrt.so"*; do
+                if [ -f "$lib_file" ]; then
+                    lib_name=$(basename "$lib_file")
+                    ln -sf "$lib_file" "/usr/local/lib64/$lib_name" 2>/dev/null || true
+                fi
+            done
+            export LD_LIBRARY_PATH="/usr/local/lib64:${LD_LIBRARY_PATH}"
+        fi
+    fi
+    
+    echo "RKNN Runtime library setup complete."
+    echo "Library paths: ${LD_LIBRARY_PATH}"
+else
+    echo "Warning: RKNN Runtime library (librknnrt.so) not found in ${EXTENSION_HOME}/usr/lib/"
+    echo "Python RKNN toolkit may not work correctly."
+fi
+
+# Additional environment setup for Python packages
+export TMPDIR="/tmp"
+export HOME="/tmp"
+
+echo "Python development environment is set up."
+echo "Extension home: ${EXTENSION_HOME}"
+echo "Python path: ${PYTHONPATH}"
+echo "Use 'python3' and 'pip3' to work with Python."
+echo ""
+echo "To test the RKNN setup, run:"
+echo "  python3 python-apps/test_cv_packages.py"

@@ -4,137 +4,146 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a BrightSign Model Package (BSMP) that implements YOLO object detection using the Rockchip NPU on BrightSign players. The project creates a BrightSign Extension that:
-- Loads YOLO models on the RK3588/RK3576/RK3568 NPU
-- Captures video from USB cameras via OpenCV
-- Performs real-time object detection 
-- Outputs decorated images to `/tmp/output.jpg` and results to `/tmp/results.json`
+This project is a set of instructions for a 3rd party developer to create an **_Extension_** for Brightsign embedded players that will add a Python environment to the BrightSign OS.
 
-## Build Commands
+These instructions are completely contained in the README file which includes many code blocks intended to be executed in the terminal or directly in the file using the VSCode RUNME extension. 
+
+### About the BrightSign OS
+
+BrightSign players are embedded linux systems where the Operating System (linux) is built using the Open Embedded tool, bitbake. Such builds are commonly referred to as Yocto builds.
+
+The filesystem on the player is mounted read-only with only two exceptions:
+- `/storage/sd` is mounted read-write, but is also `noexec`.  You can store things here to persist across reboots, but files will be generally available for anyone to inspect, so it is not secure. Additionally, the storage is on an SD Card and will be slower than the main filesystem.
+- `/usr/local` is read-write AND executable.  But it is ephemeral. That is, you can store files there and execute them, but it will not persist across reboots.
+
+### Extensions
+
+- installed as firmware updates to a player, which will expand a `squashfs` archive into the `/var/volatile/bsext` filesystem as read-only, executable.  This location is not added to the PATH, but a special script, `bsext_init` can start any daemons.  It is a SysV init script.
+
+## Build Process
+
+* the project is built from build instructions that are publicly released by BrightSign in compliance with various Open Source licenses.
+* the Developer will download these archives and expand them locally
+* This project contains additional bitbake recipes and 'patches' to apply over the public release.
+  - ALL CHANGES SHOULD BE MADE AS PATCHES IN THE `bsoe-recipes` folder and not the expanded `brightsign-oe` folder.
+* an "SDK" is built using bitbake in the modified tree
+* the built libraries and binaries are collected to an `install` folder which will form the input to the squashfs filesystem creation for the Extension
+* a build script creates an update package from the `install` dir
 
 ### Prerequisites
+
 - Must be built on x86_64 architecture (not ARM/Apple Silicon)
 - Requires BrightSign SDK installed to `./sdk/`
 - Requires Docker for model compilation
 
-### Model Compilation (one-time setup)
-```bash
-# Build RKNN toolkit Docker image
-cd toolkit/rknn-toolkit2/rknn-toolkit2/docker/docker_file/ubuntu_20_04_cp38
-docker build --rm -t rknn_tk2 -f Dockerfile_ubuntu_20_04_for_cp38 .
+## Deploying, Testing, and Validating
 
-# Compile YOLO model for RK3588 (XT-5 players)
-cd toolkit/rknn_model_zoo/
-docker run -it --rm -v $(pwd):/zoo rknn_tk2 /bin/bash \
-    -c "cd /zoo/examples/yolov8/python && python convert.py ../model/yolov8n.onnx rk3588 i8 ../model/RK3588/yolov8n.rknn"
-```
-
-### Application Build
-```bash
-# Setup environment (must be sourced in each shell)
-source ./sdk/environment-setup-aarch64-oe-linux
-
-# Build for XT-5 (RK3588)
-mkdir -p build_xt5 && cd build_xt5
-cmake .. -DOECORE_TARGET_SYSROOT="${OECORE_TARGET_SYSROOT}" -DTARGET_SOC="rk3588"
-make && make install
-
-# Build for LS-5 (RK3568)  
-mkdir -p build_ls5 && cd build_ls5
-cmake .. -DOECORE_TARGET_SYSROOT="${OECORE_TARGET_SYSROOT}" -DTARGET_SOC="rk3568"
-make && make install
-
-# Build for Firebird (RK3576)
-mkdir -p build_firebird && cd build_firebird
-cmake .. -DOECORE_TARGET_SYSROOT="${OECORE_TARGET_SYSROOT}" -DTARGET_SOC="rk3576"
-make && make install
-```
-
-### Development Testing
-```bash
-# Test without packaging
-cd install
-zip -r ../yolo-dev-$(date +%s).zip ./
-# Transfer to player and run: ./bsext_init run
-```
-
-### Extension Packaging
-```bash
-# Create BrightSign Extension
-cd install
-../sh/make-extension-lvm
-zip ../yolo-extension-$(date +%s).zip ext_npu_*
-```
-
-## Architecture
-
-### Core Components
-- **main.cpp**: Entry point, handles video capture via OpenCV
-- **inference.cpp**: RKNN model loading and inference management  
-- **yolo.cc**: YOLO-specific post-processing and object detection logic
-- **postprocess.cc**: General post-processing utilities
-- **publisher.cpp**: Outputs results to JSON and decorated images
-- **image_utils.c**: Image format conversion and preprocessing
-- **bsext_init**: Extension initialization script with SOC detection
-
-### Key Libraries
-- **RKNN Runtime** (`librknnrt.so`): Rockchip NPU inference engine
-- **RGA** (`librga.so`): Rockchip Graphics Accelerator for image processing
-- **OpenCV**: Video capture and image manipulation
-- **TurboJPEG**: Fast JPEG encoding for output images
-
-### Platform Support
-- **RK3588** (XT-5): Uses `/dev/video1` by default
-- **RK3568** (LS-5): Uses `/dev/video0` by default  
-- **RK3576** (Firebird): Uses `/dev/video0` by default
-
-### Configuration
-Extension behavior controlled via BrightSign registry keys in `extension` section:
-- `bsext-yolo-auto-start`: Set to `false` to disable auto-start
-- `bsext-yolo-video-device`: Override video device path (e.g., `/dev/video1`)
-
-## Development Workflow
-
-### Local Testing (Orange Pi)
-Optional native development on Orange Pi with same SOC:
-```bash
-mkdir -p build && cd build
-cmake .. -DTARGET_SOC="rk3588"
-make && make install
-```
-
-### Debugging
-```bash
-# Library debugging
-./check_opencv_libs.sh
-
-# Runtime debugging  
-./run_with_debug.sh model/yolov8n.rknn /dev/video0
-
-# GDB debugging
-./debug_with_gdb.sh
-```
-
-### Cross-compilation Notes
-- CMake automatically detects cross-compilation vs native build
-- Cross-builds use SDK sysroot libraries
-- Native builds use system package manager libraries
-- RGA is disabled for XT-5 via `-DDISABLE_RGA` due to compatibility issues
-
-## File Structure
-```
-src/           - C++ source files
-include/       - Headers and third-party libraries  
-toolkit/       - Rockchip model compilation tools (cloned)
-install/       - Build output and extension files
-sdk/           - BrightSign cross-compilation toolchain
-bsext_init     - Extension service script
-sh/            - Build and packaging scripts
-```
+* Extensions must be hand-deployed to the player and cannot be automated. I copy them, expand them, and reboot the player to get them installed.
+* once installed, the extension is validated bny creating an SSH connection to the player, getting to a shell, starting python, and using the REPL to load packages, etc.
+* the final test is to run the `yolox` example (python) from the `rknn_model_zoo`
 
 ## Important Notes
+
 - Model compilation requires x86_64 host architecture
 - Different video devices used per SOC platform
 - Extension runs as system service on player boot
 - Debug builds include symbols for GDB debugging
 - Library dependencies are automatically copied to install directory
+
+## Development Constraints and Instructions
+
+### Build Time Management
+- **CRITICAL**: BitBake builds are extremely slow (30+ minutes for full SDK)
+- **Testing approach**: 
+  1. Verify recipe syntax first (check imports, variables, inheritance)
+  2. Test individual packages: `./patch-n-build.sh python3-packagename` (5-15 min)
+  3. Only do full SDK builds when individual packages work (30+ min)
+  4. Use timeouts of 900000ms (15 min) minimum for individual packages
+  5. Use timeouts of 1800000ms (30 min) minimum for SDK builds
+- **Avoid unnecessary clean builds**: Only remove `tmp-glibc` when recipe structure changes
+- **Batch testing**: Fix multiple recipes before testing rather than test-fix-test cycles
+
+### File Modification Rules
+- **NEVER** modify files in the `brightsign-oe` directory directly
+- **ALL** changes must be made via rsync/patches from the `bsoe-recipes` directory
+- Use the `patch-n-build.sh` script to apply changes and build targets
+- Can read from `brightsign-oe` directory but never write to it
+
+### Build Testing
+- Use `patch-n-build.sh` script for testing changes
+- Clean builds: delete `brightsign-oe/build/tmp-glibc` directory first
+- Individual packages can be built/tested: `./patch-n-build.sh python3-package-name`
+- Full SDK build: `./patch-n-build.sh brightsign-sdk` (default)
+
+### Error Log Access
+- Build error logs can be accessed by mapping docker volume paths to host paths
+- Docker path `/home/builder/bsoe` maps to host path `brightsign-oe/`
+- Example: Docker log `/home/builder/bsoe/build/tmp-glibc/work/package/temp/log.do_task.12345` 
+  maps to host `brightsign-oe/build/tmp-glibc/work/package/temp/log.do_task.12345`
+- This allows reading detailed build logs and debugging specific package failures
+
+### Python Package Recipe Guidelines
+For pip-based Python packages, ensure all recipes include:
+
+1. **Proper FILES definition** (critical for main package creation):
+   ```
+   FILES:${PN} = "${PYTHON_SITEPACKAGES_DIR}/* /packagename* /packagename-${PV}.dist-info*"
+   ```
+
+2. **QA skip flags** for cross-compilation issues:
+   ```
+   INSANE_SKIP:${PN} += "already-stripped file-rdeps arch installed-vs-shipped"
+   ```
+
+3. **Stripping controls** for binary packages:
+   ```
+   INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
+   INHIBIT_PACKAGE_STRIP = "1"
+   ```
+
+4. **Standard source-based installation pattern**:
+   ```
+   SRC_URI = "https://pypi.io/packages/source/${SRCNAME_FIRSTCHAR}/${SRCNAME}/${SRCNAME}-${PV}.tar.gz"
+   
+   inherit setuptools3
+   
+   # Standard setuptools3 compilation - no manual do_install needed
+   # BitBake will automatically compile and install the Python package
+   ```
+
+### Cross-Compilation Considerations
+- **CRITICAL: pip cannot be used in cross-compilation**: pip installs packages for the HOST architecture (x86_64) not the TARGET architecture (ARM64). Any recipes using pip will fail to work on the target device.
+- **Proper cross-compilation approaches**: Use source-based recipes with setuptools3 inheritance, or pre-downloaded ARM64 wheel files
+- **Architecture mismatches**: Only use pre-compiled ARM64 binaries, never x86_64 wheels
+- **Binary dependencies**: Pre-compiled binaries need `file-rdeps` skip flags
+- **Proprietary packages**: Use target-architecture wheel files with stub fallbacks for missing dependencies
+
+### Common Build Issues
+- **Missing main packages**: Usually caused by incorrect FILES definitions
+- **QA failures**: Add appropriate INSANE_SKIP flags
+- **Dependency resolution**: Ensure all Python dependencies have proper main packages
+- **Pseudo errors**: Often transient, retry the build
+- **File ownership warnings**: Common with pip-installed packages, can be ignored
+
+### Build Validation
+- Verify main .ipk packages are created in `brightsign-oe/build/tmp-glibc/deploy/ipk/aarch64/`
+- Check package dependencies are resolved by looking for `python3-packagename_version.ipk` files
+- Test clean builds by removing `tmp-glibc` directory completely
+
+### Build Time Considerations
+- **BitBake builds are VERY slow**: Full SDK builds can take 30+ minutes, individual packages 5-15 minutes
+- **Use longer timeouts**: Set command timeouts to at least 900000ms (15 minutes) for individual packages, 1800000ms (30 minutes) for SDK builds
+- **Avoid frequent clean builds**: Only clean `tmp-glibc` when absolutely necessary
+- **Test strategy**: 
+  - First verify recipe syntax and basic structure
+  - Test individual packages with `./patch-n-build.sh python3-packagename` 
+  - Only do full SDK builds when individual packages work
+  - Use existing build cache when possible
+- **Parallel development**: Work on multiple recipe fixes simultaneously, then test in batch
+- **Monitor progress**: Check build logs and intermediate results rather than waiting for completion
+
+## General Development Memories
+- Always test changes with a full build
+- Treat all warnings as errors
+- You do not need the `test-package.sh` script. The `patch-n-build.sh` script already does the same thing
+- When you have a successful full build, commit changes with git
