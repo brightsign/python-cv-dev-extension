@@ -14,14 +14,11 @@ TOOLCHAIN_HOST_TASK = "\
     nativesdk-python-modules \
 "
 
-# todo add python3 and 
 TOOLCHAIN_TARGET_TASK += "\
     libstdc++ \
     libmicrohttpd \
     opencv \
     rockchip-rga \
-<<<<<<< HEAD
-=======
     librknnrt \
     python3 \
     python3-core \
@@ -40,7 +37,6 @@ TOOLCHAIN_TARGET_TASK += "\
     python3-rknn-toolkit2 \
     python3-tqdm \
     python3-typing-extensions \
->>>>>>> ed31513 (fix: Fix BitBake syntax errors in Python CV package recipes)
 "
 
 # The filename ends up with "toolchain" in it later (via

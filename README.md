@@ -10,11 +10,15 @@ This is an example BrightSign System Extension that provides Python and related 
 | _Firebird_ | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
 | _LS-5: LS445_ | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
 
-**NOTE-** This guide is written **ONLY** for the XT-5. Supporting Firebird or LS-5 is a straightforward exercise for the motivated reader.
-
-**NOTE-** This project will describe using the XT-5 ONLY. Extending the project to Firebird or LS-5 is a straightforward exercise that is readily achievable by the interested reader.
+**NOTE:** This guide is written **ONLY** for the XT-5. Supporting Firebird or LS-5 is a straightforward exercise for the motivated reader.
 
 ## Quick Start (Experienced Users)
+
+This project includes automation scripts to streamline the build process:
+- `setup.sh` - Automates prerequisites checking and source download
+- `patch-n-build.sh` - Enhanced build script with validation and options
+- `package-extension.sh` - Automates extension packaging with multiple output formats
+- `validate-build.sh` - Comprehensive build validation and verification
 
 **Automated approach** (recommended):
 ```bash
@@ -38,6 +42,20 @@ cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.
 # Deploy: Transfer packages to player via DWS, then install
 ```
 
+**Automation Script Options:**
+```bash
+# View help for any script
+./setup.sh --help
+./patch-n-build.sh --help
+./package-extension.sh --help
+./validate-build.sh --help
+
+# Advanced usage examples
+./patch-n-build.sh python3-numpy --clean    # Clean build individual package
+./package-extension.sh --dev-only --verify  # Create development package and validate
+./validate-build.sh                         # Run comprehensive validation
+```
+
 **Manual approach** (for full control):
 ```bash
 # 1. Prerequisites: x86_64 host, Docker, 25+ GB free space
@@ -45,9 +63,9 @@ git clone git@github.com:brightsign/python-cv-dev-extension.git
 cd python-cv-dev-extension && export project_root=$(pwd)
 
 # 2. Download BrightSign OS source (~10 min)
-export BRIGHTSIGN_OS_MAJOR_VERION=9.1 BRIGHTSIGN_OS_MINOR_VERION=52
-export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_MAJOR_VERION}.${BRIGHTSIGN_OS_MINOR_VERION}
-wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-{dl,oe}.tar.gz
+export BRIGHTSIGN_OS_MAJOR_VERSION=9.1 BRIGHTSIGN_OS_MINOR_VERSION=52
+export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_MAJOR_VERSION}.${BRIGHTSIGN_OS_MINOR_VERSION}
+wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERSION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-{dl,oe}.tar.gz
 tar -xzf brightsign-${BRIGHTSIGN_OS_VERSION}-src-dl.tar.gz && tar -xzf brightsign-${BRIGHTSIGN_OS_VERSION}-src-oe.tar.gz
 
 # 3. Build Docker container and SDK (~45-90 min total)
@@ -128,19 +146,17 @@ The platform SDK can be built from public sources. Browse OS releases from the [
 # Download BrightSign OS and extract
 cd "${project_root:-.}"
 
-export BRIGHTSIGN_OS_MAJOR_VERION=9.1
-export BRIGHTSIGN_OS_MINOR_VERION=52
-export BRIGHTSIGN_OS_MAJOR_VERION=9.1
-export BRIGHTSIGN_OS_MINOR_VERION=52
-export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_MAJOR_VERION}.${BRIGHTSIGN_OS_MINOR_VERION}
+export BRIGHTSIGN_OS_MAJOR_VERSION=9.1
+export BRIGHTSIGN_OS_MINOR_VERSION=52
+export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_MAJOR_VERSION}.${BRIGHTSIGN_OS_MINOR_VERSION}
 
 ```
 
 ```sh
 # Download source archives (⏱️ ~3-5 minutes depending on connection)
 echo "Downloading BrightSign OS source files (~2-3 GB)..."
-wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-dl.tar.gz
-wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-oe.tar.gz
+wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERSION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-dl.tar.gz
+wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERSION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-oe.tar.gz
 
 echo "✅ Download complete"
 ```
@@ -236,8 +252,6 @@ After the build completes successfully, extract and install the cross-compilatio
 cd "${project_root:-}"
 
 # Copy the SDK installer from the build output
-# copy the SDK to the project root
-cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.sh ./
 cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.sh ./
 
 # Install the SDK to ./sdk directory (⏱️ ~2-3 minutes)
@@ -459,6 +473,45 @@ cd rknn_model_zoo/examples/yolox/python
 python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/local/yolo/
 ```
 
+## Troubleshooting
+
+### Common Build Issues
+
+#### **Build Failures**
+- **BitBake errors**: Run `./validate-build.sh` to check build state
+- **Docker issues**: Ensure Docker daemon is running and image `bsoe-build` exists
+- **Disk space**: Monitor with `df -h` - builds require 25+ GB free space
+- **Network timeouts**: Use `wget -c` for resumable downloads
+
+#### **Package Issues**  
+- **Missing packages**: Check `brightsign-oe/build/tmp-glibc/deploy/ipk/aarch64/` for .ipk files
+- **RKNN toolkit missing**: Ensure network connectivity for automatic download
+- **Python import errors**: Verify SDK contains packages with verification commands in Step 2
+
+#### **Extension Deployment**
+- **Mount errors**: Ensure player is unsecured (`SECURE_CHECKS=0`)
+- **Installation failures**: Check available space on player `/usr/local`
+- **Runtime errors**: Source `setup_python_env` before using Python
+
+#### **Recovery Procedures**
+```bash
+# Clean rebuild after failure
+rm -rf brightsign-oe/build/tmp-glibc
+./patch-n-build.sh --clean
+
+# Reset Docker environment
+docker system prune -f
+docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t bsoe-build .
+
+# Validate and diagnose issues
+./validate-build.sh
+```
+
+#### **Getting Help**
+- Use automation scripts with `--help` flag for usage information
+- Run `./validate-build.sh` for comprehensive diagnostics
+- Check build logs in `brightsign-oe/build/tmp-glibc/work/*/temp/log.*`
+
 ## Licensing
 
 This project is released under the terms of the [Apache 2.0 License](./LICENSE.txt).  Any model used in a BSMP must adhere to the license terms for that model.  This is discussed in more detail [here](./model-licenses.md).
@@ -497,12 +550,16 @@ rm -rf /dev/mapper/bsos-ext_pydev
 #reboot
 ```
 
-For convenience, an `uninstall.sh` script is packaged with the extension and can be run from the player shell.  **However**, you cannot simply run the script from the extension volume as that will lock the mount.  Copy to an executable mount first.
+For convenience, an `uninstall.sh` script is packaged with the extension. **Important**: Copy the script to an executable location before running, as executing it directly from the extension volume may cause mount lock issues.
 
 ```bash
-/var/volatile/bsext/ext_pydev/uninstall.sh
-# will remove the extension from the system
+# Copy script to executable location first
+cp /var/volatile/bsext/ext_pydev/uninstall.sh /tmp/
+chmod +x /tmp/uninstall.sh
 
-# reboot to apply changes
-#reboot
+# Run the uninstall script
+/tmp/uninstall.sh
+
+# Reboot to apply changes
+reboot
 ```
