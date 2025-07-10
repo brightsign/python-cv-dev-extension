@@ -145,5 +145,5 @@ For pip-based Python packages, ensure all recipes include:
 ## General Development Memories
 - Always test changes with a full build
 - Treat all warnings as errors
-- You do not need the `test-package.sh` script. The `patch-n-build.sh` script already does the same thing
+- Use `patch-n-build.sh` for all builds. For individual package testing with clean builds, use `./patch-n-build.sh package-name --clean`
 - When you have a successful full build, commit changes with git

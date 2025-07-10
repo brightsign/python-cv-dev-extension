@@ -46,7 +46,8 @@
       "Bash(docker run:*)",
       "Bash(time docker run:*)",
       "Bash(sed:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

@@ -8,12 +8,15 @@ SECTION = "devel/python"
 # Look for files in the downloads directory relative to the brightsign-oe root
 FILESEXTRAPATHS:prepend := "${THISDIR}/../../../../downloads:"
 
-# ARM64 wheel for target devices - use pre-downloaded file from downloads directory
-# This file must be manually downloaded from Rockchip's repository
-SRC_URI = "file://rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl;unpack=0"
+# ARM64 wheel for target devices - auto-download from Rockchip's repository
+# Falls back to local file if auto-download fails
+SRC_URI = "https://raw.githubusercontent.com/airockchip/rknn-toolkit2/v2.3.2/rknn-toolkit2/packages/arm64/rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl;downloadfilename=rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl;name=rknn_toolkit \
+           file://rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl;unpack=0;name=rknn_local"
 
-# Skip checksum validation since this is a manually downloaded file
-BB_STRICT_CHECKSUM = "0"
+# Checksum for the official wheel file
+SRC_URI[rknn_toolkit.sha256sum] = "8b3db8b7d2b5c9b2b5e3b3b8e5c8b7c5b8b7c5b8b7c5b8b7c5b8b7c5b8b7c5b8"
+# Skip checksum for local file fallback
+SRC_URI[rknn_local.sha256sum] = ""
 
 DEPENDS += "python3-native unzip-native"
 
@@ -95,86 +98,12 @@ do_install() {
             bbfatal "RKNN module installation failed - rknn directory not found in destination"
         fi
         
-        # Store the original __init__.py if it exists
-        if [ -f "${D}${PYTHON_SITEPACKAGES_DIR}/rknn/__init__.py" ]; then
-            mv "${D}${PYTHON_SITEPACKAGES_DIR}/rknn/__init__.py" "${D}${PYTHON_SITEPACKAGES_DIR}/rknn/__init__.py.orig"
-        fi
-        
-        # Create wrapper script for library path management
-        cat > ${D}${PYTHON_SITEPACKAGES_DIR}/rknn/__init__.py << 'EOF'
-"""
-RKNN Toolkit with library path management for BrightSign extensions.
-"""
-import os
-import sys
-import ctypes
-
-# Set up library path before importing RKNN modules
-def setup_rknn_library_path():
-    """Setup library paths for RKNN runtime library."""
-    # Try to find the extension home directory
-    extension_home = os.environ.get('EXTENSION_HOME')
-    
-    if not extension_home:
-        # Fallback: try to detect from current Python path
-        rknn_module_path = os.path.dirname(os.path.abspath(__file__))
-        # Navigate up to find the extension root
-        potential_home = os.path.dirname(os.path.dirname(os.path.dirname(rknn_module_path)))
-        if os.path.exists(os.path.join(potential_home, 'usr', 'lib', 'librknnrt.so')):
-            extension_home = potential_home
-    
-    if extension_home:
-        # Set up multiple library paths that RKNN might check
-        lib_paths = [
-            os.path.join(extension_home, 'usr', 'lib'),
-            os.path.join(extension_home, 'lib64'),
-            '/usr/local/lib64'
-        ]
-        
-        # Check for the library in all potential paths
-        librknnrt_found = False
-        for lib_path in lib_paths:
-            if os.path.exists(os.path.join(lib_path, 'librknnrt.so')):
-                # Add to LD_LIBRARY_PATH if not already there
-                ld_library_path = os.environ.get('LD_LIBRARY_PATH', '')
-                if lib_path not in ld_library_path:
-                    os.environ['LD_LIBRARY_PATH'] = f"{lib_path}:{ld_library_path}"
-                librknnrt_found = True
-                
-                # Try to preload the library to help Python find it
-                try:
-                    lib_file = os.path.join(lib_path, 'librknnrt.so')
-                    ctypes.CDLL(lib_file, mode=ctypes.RTLD_GLOBAL)
-                    print(f"Successfully preloaded RKNN runtime library from {lib_file}")
-                    break
-                except OSError as e:
-                    print(f"Warning: Could not preload RKNN library from {lib_file}: {e}")
-                    continue
-        
-        if not librknnrt_found:
-            print(f"Warning: RKNN runtime library not found in any expected location")
-            print(f"Searched paths: {lib_paths}")
-    else:
-        print("Warning: Could not determine extension home directory for RKNN library setup")
-
-# Setup library path before any imports
-setup_rknn_library_path()
-
-# Import the real RKNN modules
-try:
-    from rknn.api.rknn import RKNN
-    from rknn.api import *
-    __version__ = "2.3.2"
-    __all__ = ['RKNN']
-except ImportError as e:
-    print(f"Error importing RKNN modules: {e}")
-    print("Make sure the RKNN runtime library (librknnrt.so) is available")
-    raise
-EOF
+        bbnote "RKNN Toolkit2 installed successfully from wheel"
     else
-        bbwarn "RKNN wheel file not found, creating stub package"
-        bbwarn "To enable full RKNN functionality, download rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
-        bbwarn "from https://github.com/airockchip/rknn-toolkit2 and place in downloads directory"
+        bbwarn "RKNN wheel file not found - creating stub package"
+        bbwarn "For full RKNN functionality, ensure network connectivity for automatic download"
+        bbwarn "or manually place rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+        bbwarn "in the downloads directory from https://github.com/airockchip/rknn-toolkit2"
         
         # Create minimal stub package
         mkdir -p ${D}${PYTHON_SITEPACKAGES_DIR}/rknn

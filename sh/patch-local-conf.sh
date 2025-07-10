@@ -126,10 +126,10 @@ PREFERRED_VERSION_python3-opencv = "4.5%"
 PREFERRED_VERSION_python3-rknn-toolkit2 = "2.3.2"
 
 # Machine features for NPU support
-MACHINE_FEATURES_append = " rknn-npu"
+MACHINE_FEATURES:append = " rknn-npu"
 
 # Image install packages for RKNN runtime and development
-IMAGE_INSTALL_append = " packagegroup-rknn-runtime packagegroup-rknn-dev"
+IMAGE_INSTALL:append = " packagegroup-rknn-runtime packagegroup-rknn-dev"
 
 # Download directory for RKNN wheels (optional optimization)
 # DL_DIR ?= "${TOPDIR}/../downloads-rknn"
