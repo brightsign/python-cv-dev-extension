@@ -14,7 +14,7 @@ SRC_URI = "https://raw.githubusercontent.com/airockchip/rknn-toolkit2/v2.3.2/rkn
            file://rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl;unpack=0;name=rknn_local"
 
 # Checksum for the official wheel file
-SRC_URI[rknn_toolkit.sha256sum] = "8b3db8b7d2b5c9b2b5e3b3b8e5c8b7c5b8b7c5b8b7c5b8b7c5b8b7c5b8b7c5b8"
+SRC_URI[rknn_toolkit.sha256sum] = "d78e2ecd77502988dc2dcd46d665102be8fb15f4d4d541ef272f6abaabca0eda"
 # Skip checksum for local file fallback
 SRC_URI[rknn_local.sha256sum] = ""
 
@@ -38,8 +38,6 @@ RDEPENDS:${PN} += " \
     python3-pillow \
     python3-protobuf \
     python3-torch \
-    python3-onnx \
-    python3-onnxruntime \
     python3-tqdm \
     bash \
 "

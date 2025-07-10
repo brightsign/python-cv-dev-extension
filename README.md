@@ -15,12 +15,14 @@ This is an example BrightSign System Extension that provides Python and related 
 ## Quick Start (Experienced Users)
 
 This project includes automation scripts to streamline the build process:
+
 - `setup.sh` - Automates prerequisites checking and source download
 - `patch-n-build.sh` - Enhanced build script with validation and options
 - `package-extension.sh` - Automates extension packaging with multiple output formats
 - `validate-build.sh` - Comprehensive build validation and verification
 
 **Automated approach** (recommended):
+
 ```bash
 # Clone and setup (10-15 minutes)
 git clone git@github.com:brightsign/python-cv-dev-extension.git
@@ -43,6 +45,7 @@ cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.
 ```
 
 **Automation Script Options:**
+
 ```bash
 # View help for any script
 ./setup.sh --help
@@ -57,6 +60,7 @@ cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.
 ```
 
 **Manual approach** (for full control):
+
 ```bash
 # 1. Prerequisites: x86_64 host, Docker, 25+ GB free space
 git clone git@github.com:brightsign/python-cv-dev-extension.git
@@ -87,7 +91,7 @@ cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.
 This repository provides comprehensive steps and tools to:
 
 1. Download the BrightSign Open Source packages
-2. Build an SDK with Python and common packages  
+2. Build an SDK with Python and common packages
 3. Package and Install the Extension on the player
 4. Setup and use Python on the player for development
 
@@ -134,9 +138,10 @@ export project_root=$(pwd)
 ## Step 1 - Download the BSOS SDK (⏱️ ~5-10 minutes)
 
 **⚠️ Prerequisites Check:**
+
 - Ensure you have **15+ GB free disk space** for source files and build artifacts
 - Verify **stable internet connection** for downloading large archives (~2-3 GB total)
-- Confirm **x86_64 architecture** with `uname -m` (should output `x86_64`)
+- Confirm __x86_64 architecture__ with `uname -m` (should output `x86_64`)
 
 **Build a custom SDK from public source**
 
@@ -180,8 +185,9 @@ echo "✅ Source extraction complete"
 ## Step 2 - Build the SDK (⏱️ ~30-90 minutes)
 
 **⚠️ Important Build Notes:**
+
 - Full SDK builds typically take **30-90 minutes** on modern systems
-- Ensure **10+ GB additional free space** for build artifacts  
+- Ensure **10+ GB additional free space** for build artifacts
 - **Do not interrupt** the build process - use `screen` or `tmux` for long sessions
 - Individual package builds take **5-15 minutes** each for testing
 
@@ -261,6 +267,7 @@ echo "✅ SDK installation complete"
 ```
 
 **Build Verification**:
+
 ```sh
 # Verify the SDK contains Python and RKNN components
 ls -la sdk/sysroots/aarch64-oe-linux/usr/bin/python3*
@@ -300,6 +307,7 @@ echo "✅ Python components copied to install directory"
 ```
 
 **Package Size Verification:**
+
 ```sh
 # Check the installation size
 du -sh install/
@@ -397,41 +405,48 @@ Expected output should show ✓ marks for all packages. Any ✗ marks indicate m
 => reboot
 ```
 
-**Alternative**: On newer OS versions, use `disable_security_checks` tool if available.
+__Alternative__: On newer OS versions, use `disable_security_checks` tool if available.
 
 ### Deploy and Install Extensions
 
 **Development Installation** (volatile, for testing):
 
 1. Transfer your `pydev-*.zip` file to the player via DWS SD tab
+
 2. Connect via SSH and access the Linux shell:
-   ```bash
-   # Drop to BrightScript debugger (Ctrl-C), then:
-   exit  # Exit to BrightSign prompt
-   exit  # Exit to Linux shell
-   ```
+
+```bash
+# Drop to BrightScript debugger (Ctrl-C), then:
+exit  # Exit to BrightSign prompt
+exit  # Exit to Linux shell
+```
+
 3. Install for development:
-   ```bash
-   mkdir -p /usr/local/pydev && cd $_
-   unzip /storage/sd/pydev-*.zip
-   source ./setup_python_env
-   echo "Python development environment ready (volatile - will not persist across reboots)"
-   ```
+
+```bash
+mkdir -p /usr/local/pydev && cd $_
+unzip /storage/sd/pydev-*.zip
+source ./setup_python_env
+echo "Python development environment ready (volatile - will not persist across reboots)"
+```
 
 **Production Installation** (permanent):
 
-1. Transfer your `ext_pydev-*.zip` file to the player via DWS SD tab  
+1. Transfer your `ext_pydev-*.zip` file to the player via DWS SD tab
+
 2. Install the extension:
-   ```bash
-   mkdir -p /usr/local/pydev && cd $_
-   unzip /storage/sd/ext_pydev-*.zip
-   bash ./ext_pydev_install-lvm.sh
-   reboot  # Extension activates on reboot
-   ```
+
+```bash
+mkdir -p /usr/local/pydev && cd $_
+unzip /storage/sd/ext_pydev-*.zip
+bash ./ext_pydev_install-lvm.sh
+reboot  # Extension activates on reboot
+```
 
 ### Production Deployment
 
 For production systems:
+
 - Submit the extension to BrightSign for code signing
 - Contact BrightSign for production deployment guidance
 
@@ -478,22 +493,26 @@ python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/lo
 ### Common Build Issues
 
 #### **Build Failures**
+
 - **BitBake errors**: Run `./validate-build.sh` to check build state
 - **Docker issues**: Ensure Docker daemon is running and image `bsoe-build` exists
 - **Disk space**: Monitor with `df -h` - builds require 25+ GB free space
 - **Network timeouts**: Use `wget -c` for resumable downloads
 
-#### **Package Issues**  
+#### **Package Issues**
+
 - **Missing packages**: Check `brightsign-oe/build/tmp-glibc/deploy/ipk/aarch64/` for .ipk files
 - **RKNN toolkit missing**: Ensure network connectivity for automatic download
 - **Python import errors**: Verify SDK contains packages with verification commands in Step 2
 
 #### **Extension Deployment**
-- **Mount errors**: Ensure player is unsecured (`SECURE_CHECKS=0`)
+
+- __Mount errors__: Ensure player is unsecured (`SECURE_CHECKS=0`)
 - **Installation failures**: Check available space on player `/usr/local`
-- **Runtime errors**: Source `setup_python_env` before using Python
+- __Runtime errors__: Source `setup_python_env` before using Python
 
 #### **Recovery Procedures**
+
 ```bash
 # Clean rebuild after failure
 rm -rf brightsign-oe/build/tmp-glibc
@@ -508,6 +527,7 @@ docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t bsoe-
 ```
 
 #### **Getting Help**
+
 - Use automation scripts with `--help` flag for usage information
 - Run `./validate-build.sh` for comprehensive diagnostics
 - Check build logs in `brightsign-oe/build/tmp-glibc/work/*/temp/log.*`

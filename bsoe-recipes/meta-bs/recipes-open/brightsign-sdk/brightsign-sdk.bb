@@ -31,8 +31,6 @@ TOOLCHAIN_TARGET_TASK += "\
     python3-pip \
     python3-pytest \
     python3-flatbuffers \
-    python3-onnx \
-    python3-onnxruntime \
     python3-torch \
     python3-rknn-toolkit2 \
     python3-tqdm \
