@@ -33,7 +33,10 @@ RDEPENDS:${PN} += " \
     python3-protobuf \
 "
 
+# Standard FILES definition for Python packages
+FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"
+
 # Skip QA warnings that may occur during cross-compilation
-INSANE_SKIP:${PN} += "buildpaths"
+INSANE_SKIP:${PN} += "buildpaths already-stripped file-rdeps arch installed-vs-shipped"
 
 BBCLASSEXTEND = "native nativesdk"

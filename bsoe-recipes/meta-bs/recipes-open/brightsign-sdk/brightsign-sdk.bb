@@ -16,25 +16,6 @@ TOOLCHAIN_HOST_TASK = "\
 
 TOOLCHAIN_TARGET_TASK += "\
     libstdc++ \
-    libmicrohttpd \
-    opencv \
-    rockchip-rga \
-    librknnrt \
-    python3 \
-    python3-core \
-    python3-modules \
-    python3-dev \
-    python3-numpy \
-    python3-pillow \
-    python3-opencv \
-    python3-setuptools \
-    python3-pip \
-    python3-pytest \
-    python3-flatbuffers \
-    python3-torch \
-    python3-rknn-toolkit2 \
-    python3-tqdm \
-    python3-typing-extensions \
 "
 
 # The filename ends up with "toolchain" in it later (via

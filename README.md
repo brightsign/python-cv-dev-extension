@@ -16,84 +16,11 @@ This is an example BrightSign System Extension that provides Python and related 
 
 This project includes automation scripts to streamline the build process:
 
-- `setup.sh` - Automates prerequisites checking and source download
-- `patch-n-build.sh` - Enhanced build script with validation and options
-- `package-extension.sh` - Automates extension packaging with multiple output formats
-- `validate-build.sh` - Comprehensive build validation and verification
-
-**Automated approach** (recommended):
-
-```bash
-# Clone and setup (10-15 minutes)
-git clone git@github.com:brightsign/python-cv-dev-extension.git
-cd python-cv-dev-extension
-./setup.sh
-
-# Build SDK (30-90 minutes)  
-./sh/patch-local-conf.sh -y
-./patch-n-build.sh
-
-# Extract SDK and create packages (5-10 minutes)
-cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.sh ./
-./brightsign-x86_64-cobra-toolchain-*.sh -d ./sdk -y
-./package-extension.sh
-
-# Validate build
-./validate-build.sh
-
-# Deploy: Transfer packages to player via DWS, then install
-```
-
-**Automation Script Options:**
-
-```bash
-# View help for any script
-./setup.sh --help
-./patch-n-build.sh --help
-./package-extension.sh --help
-./validate-build.sh --help
-
-# Advanced usage examples
-./patch-n-build.sh python3-numpy --clean    # Clean build individual package
-./package-extension.sh --dev-only --verify  # Create development package and validate
-./validate-build.sh                         # Run comprehensive validation
-```
-
-**Manual approach** (for full control):
-
-```bash
-# 1. Prerequisites: x86_64 host, Docker, 25+ GB free space
-git clone git@github.com:brightsign/python-cv-dev-extension.git
-cd python-cv-dev-extension && export project_root=$(pwd)
-
-# 2. Download BrightSign OS source (~10 min)
-export BRIGHTSIGN_OS_MAJOR_VERSION=9.1 BRIGHTSIGN_OS_MINOR_VERSION=52
-export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_MAJOR_VERSION}.${BRIGHTSIGN_OS_MINOR_VERSION}
-wget https://brightsignbiz.s3.amazonaws.com/firmware/opensource/${BRIGHTSIGN_OS_MAJOR_VERSION}/${BRIGHTSIGN_OS_VERSION}/brightsign-${BRIGHTSIGN_OS_VERSION}-src-{dl,oe}.tar.gz
-tar -xzf brightsign-${BRIGHTSIGN_OS_VERSION}-src-dl.tar.gz && tar -xzf brightsign-${BRIGHTSIGN_OS_VERSION}-src-oe.tar.gz
-
-# 3. Build Docker container and SDK (~45-90 min total)
-wget https://raw.githubusercontent.com/brightsign/extension-template/refs/heads/main/Dockerfile
-docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t bsoe-build .
-mkdir -p srv && ./sh/patch-local-conf.sh -y && ./patch-n-build.sh
-
-# 4. Extract SDK and package extension (~5 min)
-cp brightsign-oe/build/tmp-glibc/deploy/sdk/brightsign-x86_64-cobra-toolchain-*.sh ./
-./brightsign-x86_64-cobra-toolchain-*.sh -d ./sdk -y
-./package-extension.sh
-
-# 5. Deploy to unsecured player and install
-# Transfer zip file via DWS, then: bash ./ext_pydev_install-lvm.sh && reboot
-```
-
-## Detailed Instructions
-
-This repository provides comprehensive steps and tools to:
-
-1. Download the BrightSign Open Source packages
-2. Build an SDK with Python and common packages
-3. Package and Install the Extension on the player
-4. Setup and use Python on the player for development
+- `setup` - Automates prerequisites checking and source download
+- `build` - Build script using pre-built Docker image with source included
+- `package` - Automates extension packaging with multiple output formats
+- `check-recipe-syntax.py` - Pre-build recipe validation tool
+- `validate` - Comprehensive recipe validation suite
 
 ## Project Overview & Requirements
 
@@ -134,6 +61,185 @@ cd python-cv-dev-extension
 export project_root=$(pwd)
 # this environment variable is used in the following scripts to refer to the root of the project
 ```
+
+**Automated approach** (recommended):
+
+```bash
+# Clone and setup (5-10 minutes)
+git clone git@github.com:brightsign/python-cv-dev-extension.git
+cd python-cv-dev-extension
+./setup
+
+# Build SDK with automatic extraction (30-90 minutes)
+./build --extract-sdk
+
+# Install SDK and package extension (2-5 minutes)
+./brightsign-x86_64-cobra-toolchain-*.sh -d ./sdk -y
+./package
+
+# Validate recipes (optional)
+./validate
+
+# Deploy: Transfer packages to player via DWS, then install
+```
+
+**Note**: We use `build` which uses a pre-built Docker image with BrightSign OS source already included, eliminating download time and permission issues.
+
+**Automation Script Options:**
+
+```bash
+# View help for any script
+./setup --help
+./build --help
+./package --help
+./validate --help
+
+# Recipe validation tools
+./check-recipe-syntax.py --help            # Validate individual recipes
+./validate                                 # Validate all Python recipes
+
+# Advanced usage examples
+./build python3-numpy --clean              # Clean build individual package
+./build --distclean python3-pkg            # Deep clean with cache removal
+./build --no-patch python3-pkg             # Build without patches (vanilla)
+./package --dev-only --verify              # Create development package and validate
+./validate                                 # Run comprehensive recipe validation
+```
+
+**Manual approach** (for full control):
+
+```bash
+# 1. Prerequisites: x86_64 host, Docker, 25+ GB free space
+git clone git@github.com:brightsign/python-cv-dev-extension.git
+cd python-cv-dev-extension && export project_root=$(pwd)
+
+# 2. Build Docker container with pre-built source (~30 min)
+# Source will be downloaded during container build
+docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
+  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build-v3 .
+
+# 3. Build SDK using pre-built image (~30-60 min)
+mkdir -p srv && ./sh/patch-local-conf.sh -y 
+./build --extract-sdk
+
+# 4. Install SDK and package extension (~5 min)
+./brightsign-x86_64-cobra-toolchain-*.sh -d ./sdk -y
+./package
+
+# 5. Deploy to unsecured player and install
+# Transfer zip file via DWS, then: bash ./ext_pydev_install-lvm.sh && reboot
+```
+
+**Key Differences**:
+
+- BrightSign OS source is downloaded during Docker image build (not at runtime)
+- No Docker volumes needed - source embedded in image
+- No manual source download required - happens during `docker build`
+- Clean separation between patched and unpatched builds with `--no-patch` option
+
+## Direct Docker Commands
+
+For users who prefer direct Docker commands instead of the automated scripts:
+
+### Build the Docker Image
+
+```bash
+# Build image with BrightSign OS source pre-installed (~30 minutes)
+# ✅ COMPLETED SUCCESSFULLY - Image ready for use
+docker build --rm \
+  --build-arg USER_ID=$(id -u) \
+  --build-arg GROUP_ID=$(id -g) \
+  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 \
+  -t bsoe-build-v3 .
+
+# Verify the image was created successfully
+docker images | grep bsoe-build-v3
+```
+
+### Run Container Interactively
+
+```bash
+# Interactive shell with patches available
+docker run -it --rm \
+  -v "$(pwd)/bsoe-recipes:/home/builder/patches:ro" \
+  -v "$(pwd)/srv:/srv" \
+  -w /home/builder/bsoe/brightsign-oe/build \
+  bsoe-build-v3 bash
+
+# Interactive shell for vanilla builds (no patches)
+docker run -it --rm \
+  -v "$(pwd)/srv:/srv" \
+  -w /home/builder/bsoe/brightsign-oe/build \
+  bsoe-build-v3 bash
+```
+
+### Manual Build Commands Inside Container
+
+```bash
+# Apply patches (if desired)
+/usr/local/bin/setup-patches.sh
+
+# Initialize BitBake environment (required for manual builds)
+source ../oe-core/oe-init-build-env . ../bitbake
+
+# Build specific packages
+MACHINE=cobra ./bsbb python3-tqdm
+MACHINE=cobra ./bsbb python3-opencv
+MACHINE=cobra ./bsbb python3-rknn-toolkit2
+MACHINE=cobra ./bsbb brightsign-sdk
+
+# Clean builds (recommended for troubleshooting)
+MACHINE=cobra ./bsbb -c cleanall python3-tqdm
+MACHINE=cobra ./bsbb python3-tqdm
+
+# Advanced build commands
+MACHINE=cobra ./bsbb -c fetch python3-numpy     # Download sources only
+MACHINE=cobra ./bsbb -c compile python3-numpy   # Compile without packaging
+MACHINE=cobra ./bsbb -c devshell python3-numpy  # Enter development shell
+
+# Check dependencies and validate recipes
+bitbake-layers show-recipes | grep python3
+bitbake -g python3-opencv  # Generate dependency graph
+bitbake -e python3-opencv | grep "^SRC_URI="  # Show source URLs
+
+# View build logs for debugging
+cat tmp-glibc/work/aarch64-oe-linux/python3-*/*/temp/log.do_*
+
+# Package management
+ls tmp-glibc/deploy/ipk/aarch64/python3-*.ipk  # List built packages
+```
+
+### Docker Build Status ✅
+
+**Latest Build Results**: The Docker image `bsoe-build-v3` has been successfully built and contains:
+
+- **BrightSign OS v9.1.52 source code** (19GB downloaded and extracted)
+- **Complete OpenEmbedded/BitBake build environment**
+- **All required dependencies for cross-compilation**
+- **Proper user permissions and environment setup**
+- **Patch scripts ready for use**
+
+**Build Summary**:
+
+- Total build time: ~17 minutes (cached layers + final export)
+- Image size: Includes full source tree (~20GB+ compressed)
+- Status: Ready for SDK builds and package development
+
+**Next Steps**:
+
+1. Build the SDK: `./build --extract-sdk`
+2. Test individual packages: `./build python3-opencv`
+3. Validate recipes: `./validate`
+4. Package extension: `./package`
+
+## Detailed Instructions
+
+This repository provides comprehensive steps and tools to:
+
+1. Download the BrightSign Open Source packages
+2. Build an SDK with Python and common packages
+3. Package and Install the Extension on the player
+4. Setup and use Python on the player for development
 
 ## Step 1 - Download the BSOS SDK (⏱️ ~5-10 minutes)
 
@@ -205,23 +311,39 @@ rm brightsign-oe/build/conf/local.conf 2>/dev/null || true
 
 **Build the SDK** (⏱️ ~30-60 minutes depending on system):
 
-```sh
+```sh {"terminalRows":"42"}
 cd "${project_root:-.}"
 
-# Build the complete SDK with Python and RKNN support
-./patch-n-build.sh
+# Build the complete SDK with Python and RKNN support (pre-built image)
+./build
+
+# Or build and immediately extract SDK to host
+./build --extract-sdk
 ```
+
+**Build System:**
+
+- `./build` - Uses pre-built Docker image with embedded source for reliable, fast builds
 
 For advanced users who want to build specific packages first:
 
 ```sh
-# Test individual packages (5-15 minutes each)
-./patch-n-build.sh python3-numpy
-./patch-n-build.sh python3-opencv  
-./patch-n-build.sh python3-rknn-toolkit2
+# Validate all recipes before building (recommended)
+./validate
+
+# Test individual package syntax
+./check-recipe-syntax.py bsoe-recipes/meta-bs/recipes-open/python3-numpy/python3-numpy_*.bb
+
+# Test individual packages (5-15 minutes each) using pre-built image
+./build python3-numpy
+./build python3-opencv  
+./build python3-rknn-toolkit2
+
+# Test vanilla build without patches
+./build --no-patch python3-numpy
 
 # Build complete SDK after testing
-./patch-n-build.sh brightsign-sdk
+./build
 ```
 
 The recipe from this repository provides:
@@ -240,15 +362,79 @@ ___IMPORTANT___: Building an OpenEmbedded project can be very particular in term
 ```sh
 cd "${project_root:-.}"
 
-# Download Dockerfile and build the container image (5-10 minutes)
-wget https://raw.githubusercontent.com/brightsign/extension-template/refs/heads/main/Dockerfile
-docker build --rm --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) --ulimit memlock=-1:-1 -t bsoe-build .
+# Build the container image with pre-built source (~30 minutes)
+docker build --rm --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
+  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build-v3 .
 
 # Create output directory
 mkdir -p srv
 ```
 
-The `patch-n-build.sh` script will automatically use this Docker container for all builds.
+The `build` script will automatically use this Docker container for all builds.
+
+### Manual Docker Container Usage (Advanced Debugging)
+
+For troubleshooting build issues or developing recipes manually, you can run the Docker container interactively:
+
+```sh
+# Enter interactive shell in build environment
+docker run --rm -it \
+    -v "$(pwd)/bsoe-recipes:/home/builder/patches:ro" \
+    -v "$(pwd)/srv:/srv" \
+    -w /home/builder/bsoe/brightsign-oe/build \
+    bsoe-build-v3 bash
+
+# Inside the container, initialize the build environment
+source ../oe-core/oe-init-build-env . ../bitbake
+
+# Manual recipe validation
+bitbake-layers show-recipes | grep python3
+bitbake -c devshell python3-package-name  # Enter development shell
+bitbake -c compile python3-package-name   # Compile specific package
+
+# Check dependencies and providers
+bitbake -g python3-package-name  # Generate dependency graph
+bitbake-layers show-cross-depends
+
+# Build specific tasks
+bitbake -c fetch python3-package-name     # Download sources
+bitbake -c unpack python3-package-name    # Extract sources
+bitbake -c patch python3-package-name     # Apply patches
+bitbake -c configure python3-package-name # Configure build
+bitbake -c compile python3-package-name   # Compile only
+
+# Clean specific package for rebuild
+bitbake -c cleanall python3-package-name
+
+# Exit container
+exit
+```
+
+**Common debugging commands inside the container:**
+
+```sh
+# Check recipe parsing
+bitbake-layers show-recipes python3-*
+
+# View recipe content and metadata
+bitbake -e python3-package-name | grep "^SRC_URI="
+bitbake -e python3-package-name | grep "^FILES:"
+
+# Check work directories for build artifacts
+ls -la tmp-glibc/work/aarch64-oe-linux/python3-package-name/
+
+# View build logs
+cat tmp-glibc/work/aarch64-oe-linux/python3-package-name/*/temp/log.do_*
+
+# Test package installation
+ls tmp-glibc/deploy/ipk/aarch64/python3-package-name_*.ipk
+```
+
+```sh
+cd "${project_root:-.}"
+
+./build copy-to-srv
+```
 
 **Extract and Install the SDK**:
 
@@ -273,9 +459,49 @@ echo "✅ SDK installation complete"
 ls -la sdk/sysroots/aarch64-oe-linux/usr/bin/python3*
 ls -la sdk/sysroots/aarch64-oe-linux/usr/lib/librknnrt.so*
 ls -la sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/rknn/
+
+# Verify critical Python packages are included
+echo "=== Checking Python packages in SDK ==="
+ls -d sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/torch* 2>/dev/null && echo "✓ PyTorch found" || echo "✗ PyTorch missing"
+ls -d sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/tqdm* 2>/dev/null && echo "✓ tqdm found" || echo "✗ tqdm missing"
+ls -d sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/typing_extensions* 2>/dev/null && echo "✓ typing_extensions found" || echo "✗ typing_extensions missing"
+ls -d sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/flatbuffers* 2>/dev/null && echo "✓ flatbuffers found" || echo "✗ flatbuffers missing"
+ls -d sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/jinja2* 2>/dev/null && echo "✓ jinja2 found" || echo "✗ jinja2 missing"
+
+# If packages are missing, they may need to be manually copied from the build output
+if [ ! -d "sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/torch" ]; then
+    echo "⚠️  Some packages may be missing from SDK. Run the following to manually install:"
+    echo "   cd brightsign-oe/build/tmp-glibc/deploy/ipk/aarch64/"
+    echo "   for pkg in python3-torch python3-tqdm python3-typing-extensions python3-flatbuffers python3-jinja2; do"
+    echo "     ar x \${pkg}_*_aarch64.ipk data.tar.gz && tar -xzf data.tar.gz -C ../../../../../sdk/sysroots/aarch64-oe-linux/"
+    echo "   done"
+fi
 ```
 
 **Note**: The Rockchip RKNN runtime library (`librknnrt.so`) and Python packages are automatically included through BitBake recipes - no manual patching required.
+
+### Docker Image Management
+
+The pre-built image system embeds source code directly in the Docker image. Here are useful commands for managing it:
+
+```sh
+# Check image size and details
+docker images | grep bsoe-build-v3
+docker system df
+
+# Rebuild image with different OS version
+docker build --build-arg BRIGHTSIGN_OS_VERSION=9.1.53 -t bsoe-build-v3 .
+
+# Access container for debugging (source already included)
+docker run -it --rm \
+  -v $(pwd)/bsoe-recipes:/home/builder/patches:ro \
+  -v $(pwd)/srv:/srv \
+  bsoe-build-v3 bash
+
+# Clean up old images (frees space)
+docker image prune -f
+docker rmi bsoe-build-v2 bsoe-build  # Remove old versions if they exist
+```
 
 ## Step 3 - Package and Install the Extension (⏱️ ~5-10 minutes)
 
@@ -338,7 +564,7 @@ echo "✅ Extension scripts added"
 cd "${project_root:-.}/install"
 
 # Create timestamped development package
-PACKAGE_NAME="pydev-$(date +%Y%m%d-%H%M%S)"
+export PACKAGE_NAME="pydev-$(date +%Y%m%d-%H%M%S)"
 zip -r "../${PACKAGE_NAME}.zip" ./
 
 echo "✅ Development package created: ${PACKAGE_NAME}.zip"
@@ -413,6 +639,14 @@ __Alternative__: On newer OS versions, use `disable_security_checks` tool if ava
 
 1. Transfer your `pydev-*.zip` file to the player via DWS SD tab
 
+```bash {"promptEnv":"never"}
+export PLAYER_IP=192.168.6.93
+export PASSWORD=password
+
+sshpass -p "${PASSWORD}" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    "${PACKAGE_NAME}.zip" brightsign@"${PLAYER_IP}":/storage/sd/
+```
+
 2. Connect via SSH and access the Linux shell:
 
 ```bash
@@ -433,7 +667,6 @@ echo "Python development environment ready (volatile - will not persist across r
 **Production Installation** (permanent):
 
 1. Transfer your `ext_pydev-*.zip` file to the player via DWS SD tab
-
 2. Install the extension:
 
 ```bash
@@ -494,13 +727,15 @@ python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/lo
 
 #### **Build Failures**
 
-- **BitBake errors**: Run `./validate-build.sh` to check build state
-- **Docker issues**: Ensure Docker daemon is running and image `bsoe-build` exists
+- **BitBake permission errors**: Use the manual PyTorch fix method above as alternative
+- **BitBake errors**: Check build logs for specific error details
+- **Docker issues**: Ensure Docker daemon is running and image `bsoe-build-v3` exists
 - **Disk space**: Monitor with `df -h` - builds require 25+ GB free space
 - **Network timeouts**: Use `wget -c` for resumable downloads
 
 #### **Package Issues**
 
+- **PyTorch import errors**: Use manual fix method above
 - **Missing packages**: Check `brightsign-oe/build/tmp-glibc/deploy/ipk/aarch64/` for .ipk files
 - **RKNN toolkit missing**: Ensure network connectivity for automatic download
 - **Python import errors**: Verify SDK contains packages with verification commands in Step 2
@@ -515,22 +750,23 @@ python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/lo
 
 ```bash
 # Clean rebuild after failure
-rm -rf brightsign-oe/build/tmp-glibc
-./patch-n-build.sh --clean
+./build --distclean
 
 # Reset Docker environment
 docker system prune -f
-docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) -t bsoe-build .
+docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
+  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build-v3 .
 
-# Validate and diagnose issues
-./validate-build.sh
+# Validate recipes and diagnose issues
+./validate
 ```
 
 #### **Getting Help**
 
 - Use automation scripts with `--help` flag for usage information
-- Run `./validate-build.sh` for comprehensive diagnostics
+- Run `./validate` for recipe diagnostics
 - Check build logs in `brightsign-oe/build/tmp-glibc/work/*/temp/log.*`
+- Try manual fix methods when BitBake builds persistently fail
 
 ## Licensing
 
@@ -583,3 +819,40 @@ chmod +x /tmp/uninstall.sh
 # Reboot to apply changes
 reboot
 ```
+
+## Design Notes: Pre-Built Docker Image Build System
+
+### Problem
+
+Previous approaches had issues with:
+
+- Large downloads during runtime (19GB source files)
+- File permission issues with Docker Desktop bind mounts
+- Complex source management with Docker volumes
+- Mixed source setup and build operations
+
+### Solution
+
+We've implemented a pre-built Docker image approach that downloads and extracts BrightSign OS source during `docker build`, creating a clean separation between source preparation and build operations.
+
+### Key Design Decisions
+
+1. **Pre-Built Source in Image**: The BrightSign OS source (~20GB) is downloaded and extracted during `docker build`, creating immutable source that's consistent across all builds.
+2. **No Runtime Source Management**: Source is ready when the container starts, eliminating download time and complexity from build operations.
+3. **Minimal Runtime Bind Mounts**: Only small directories are bind-mounted at runtime:
+
+   - `/bsoe-recipes` (patches, read-only) - only when applying patches
+   - `/srv` (TFTP/NFS exports)
+
+4. **Patch/No-Patch Modes**: Build script supports both patched builds (default) and vanilla builds with `--no-patch` option.
+5. **SDK Extraction**: Built SDKs can be extracted from the container using `docker cp`, maintaining the ability to use build artifacts on the host.
+
+### Benefits
+
+- **Faster Build Starts**: No 25-minute download wait before building
+- **Consistent Source**: Immutable source eliminates version mismatches
+- **Cleaner Host System**: No large source directories on host filesystem
+- **Build Flexibility**: Easy switching between patched and vanilla builds
+- **Simplified Workflow**: Single-command builds with clear separation of concerns
+
+For migration details, see [DOCKER_VOLUMES_MIGRATION.md](DOCKER_VOLUMES_MIGRATION.md).

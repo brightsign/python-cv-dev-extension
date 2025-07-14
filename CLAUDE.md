@@ -71,7 +71,9 @@ The filesystem on the player is mounted read-only with only two exceptions:
 
 ### Build Testing
 - Use `patch-n-build.sh` script for testing changes
-- Clean builds: delete `brightsign-oe/build/tmp-glibc` directory first
+- Clean builds: use `./patch-n-build.sh --clean TARGET` or `./patch-n-build.sh --distclean TARGET`
+  - `--clean`: Runs bitbake -c cleanall for the target
+  - `--distclean`: Removes tmp-glibc and sstate-cache directories (implies --clean)
 - Individual packages can be built/tested: `./patch-n-build.sh python3-package-name`
 - Full SDK build: `./patch-n-build.sh brightsign-sdk` (default)
 
@@ -143,7 +145,40 @@ For pip-based Python packages, ensure all recipes include:
 - **Monitor progress**: Check build logs and intermediate results rather than waiting for completion
 
 ## General Development Memories
-- Always test changes with a full build
+- Test individual packages first before full SDK builds to save time
 - Treat all warnings as errors
-- Use `patch-n-build.sh` for all builds. For individual package testing with clean builds, use `./patch-n-build.sh package-name --clean`
-- When you have a successful full build, commit changes with git
+- Use `patch-n-build.sh` for all builds
+  - For clean builds: `./patch-n-build.sh --clean package-name`
+  - For distclean: `./patch-n-build.sh --distclean package-name`
+- Validate recipes before building: `./check-recipe-syntax.py bsoe-recipes/meta-bs/recipes-devtools/python/*.bb`
+- When you have successful individual package builds, test with full SDK build before committing
+
+## Package Validation
+- Validate package versions with the requirements from the rknn_model_zoo v 2.3.2 at https://github.com/airockchip/rknn_model_zoo/blob/v2.3.2/docs/requirements_cp38.txt
+
+## Common BitBake Error Solutions
+
+### "Nothing PROVIDES" Errors
+- **Cause**: Missing dependency or incorrect package name
+- **Solution**: Check DEPENDS and RDEPENDS, ensure package recipes exist
+- **Quick fix**: Search for correct package name: `find bsoe-recipes -name "*packagename*.bb"`
+
+### "do_compile: Execution failed" 
+- **Cause**: Cross-compilation issues, missing build dependencies
+- **Solution**: Check build logs at `brightsign-oe/build/tmp-glibc/work/*/temp/log.do_compile.*`
+- **Common fixes**: Add missing DEPENDS, ensure proper cross-compilation flags
+
+### "Files/directories were installed but not shipped"
+- **Cause**: Missing or incorrect FILES definition
+- **Solution**: Add proper FILES:${PN} definition including all installed paths
+- **Template**: `FILES:${PN} = "${PYTHON_SITEPACKAGES_DIR}/*"`
+
+### Permission Errors
+- **Cause**: Docker container permission mismatches
+- **Solution**: Run `./patch-n-build.sh --distclean TARGET` to clean and rebuild
+- **Prevention**: Never run scripts as root
+
+### Recipe Validation Tools
+- **Pre-build check**: `./check-recipe-syntax.py recipe.bb`
+- **Validate all recipes**: `./validate-recipes.sh`
+- **Template for new recipes**: `bsoe-recipes/meta-bs/recipes-devtools/python/recipe-template.bb`

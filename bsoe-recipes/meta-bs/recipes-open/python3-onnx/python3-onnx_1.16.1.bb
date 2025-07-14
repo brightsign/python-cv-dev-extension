@@ -43,7 +43,10 @@ do_compile:prepend() {
     export ONNX_ML=1
 }
 
+# Standard FILES definition for Python packages
+FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"
+
 # ONNX uses C++ extensions that may need special handling
-INSANE_SKIP:${PN} += "buildpaths dev-so"
+INSANE_SKIP:${PN} += "buildpaths dev-so already-stripped file-rdeps arch installed-vs-shipped"
 
 BBCLASSEXTEND = "native nativesdk"

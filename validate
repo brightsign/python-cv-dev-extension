@@ -1,0 +1,177 @@
+#!/bin/bash
+
+# Validate all BitBake recipes in the project
+# This script performs comprehensive validation of recipe files
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RECIPE_DIR="${SCRIPT_DIR}/bsoe-recipes"
+PYTHON_RECIPES="${RECIPE_DIR}/meta-bs/recipes-devtools/python"
+
+usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo "Validate BitBake recipes in the project"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help    Show this help message"
+    echo ""
+    echo "This script performs:"
+    echo "  - Syntax validation of all Python recipes"
+    echo "  - Cross-reference with rknn_model_zoo requirements"
+    echo "  - Detection of common anti-patterns"
+    echo "  - Duplicate recipe checking"
+    echo ""
+    echo "Examples:"
+    echo "  $0            # Run full validation suite"
+}
+
+# Parse command line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *) echo "Unknown parameter: $1"; usage; exit 1 ;;
+    esac
+done
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo "BrightSign Recipe Validator"
+echo "==========================="
+
+# Check if check-recipe-syntax.py exists
+if [ ! -f "${SCRIPT_DIR}/check-recipe-syntax.py" ]; then
+    echo -e "${RED}Error: check-recipe-syntax.py not found${NC}"
+    exit 1
+fi
+
+# Count recipes
+TOTAL_RECIPES=$(find "$PYTHON_RECIPES" -name "*.bb" -not -name "recipe-template.bb" | wc -l)
+echo "Found $TOTAL_RECIPES Python recipes to validate"
+echo
+
+# Run syntax checker
+echo "Running syntax validation..."
+if python3 "${SCRIPT_DIR}/check-recipe-syntax.py" "$PYTHON_RECIPES"/*.bb; then
+    echo -e "${GREEN}✓ All recipes passed syntax validation${NC}"
+    SYNTAX_PASSED=true
+else
+    echo -e "${RED}✗ Some recipes failed syntax validation${NC}"
+    SYNTAX_PASSED=false
+fi
+
+echo
+echo "Additional Validation Checks"
+echo "----------------------------"
+
+# Check for duplicate recipes
+echo -n "Checking for duplicate recipes... "
+DUPLICATES=$(find "$PYTHON_RECIPES" -name "*.bb" -exec basename {} \; | \
+    sed 's/_[0-9].*//' | sort | uniq -d)
+if [ -z "$DUPLICATES" ]; then
+    echo -e "${GREEN}✓ No duplicates found${NC}"
+else
+    echo -e "${RED}✗ Duplicate recipes found:${NC}"
+    echo "$DUPLICATES"
+fi
+
+# Check for missing checksums
+echo -n "Checking for missing checksums... "
+MISSING_CHECKSUMS=$(grep -L "SRC_URI\[.*sum\]" "$PYTHON_RECIPES"/*.bb 2>/dev/null | \
+    grep -v "inherit pypi" | grep -v "recipe-template" || true)
+if [ -z "$MISSING_CHECKSUMS" ]; then
+    echo -e "${GREEN}✓ All recipes have checksums${NC}"
+else
+    echo -e "${YELLOW}⚠ Recipes without checksums (may use pypi):${NC}"
+    basename -a $MISSING_CHECKSUMS
+fi
+
+# Check for common anti-patterns
+echo -n "Checking for pip install usage... "
+PIP_USAGE=$(grep -l "pip install" "$PYTHON_RECIPES"/*.bb 2>/dev/null || true)
+if [ -z "$PIP_USAGE" ]; then
+    echo -e "${GREEN}✓ No pip install usage found${NC}"
+else
+    echo -e "${RED}✗ Found pip install (breaks cross-compilation):${NC}"
+    basename -a $PIP_USAGE
+fi
+
+# Check for proper Python 3.8 compatibility
+echo -n "Checking Python version constraints... "
+WRONG_PYTHON=$(grep -l "python3[^8]" "$PYTHON_RECIPES"/*.bb 2>/dev/null | \
+    grep -v "python3-" || true)
+if [ -z "$WRONG_PYTHON" ]; then
+    echo -e "${GREEN}✓ All recipes compatible with Python 3.8${NC}"
+else
+    echo -e "${YELLOW}⚠ Check Python version in:${NC}"
+    basename -a $WRONG_PYTHON
+fi
+
+# Validate against rknn_model_zoo requirements
+echo
+echo "Cross-referencing with rknn_model_zoo requirements..."
+REQUIREMENTS_URL="https://raw.githubusercontent.com/airockchip/rknn_model_zoo/v2.3.2/docs/requirements_cp38.txt"
+
+# Create a temporary file for requirements
+TEMP_REQ=$(mktemp)
+if curl -s "$REQUIREMENTS_URL" -o "$TEMP_REQ" 2>/dev/null; then
+    echo "Checking coverage of required packages:"
+    
+    # Extract package names from requirements
+    grep -v "^#" "$TEMP_REQ" | grep -v "^$" | cut -d'=' -f1 | cut -d'>' -f1 | \
+    while read -r package; do
+        # Normalize package name (e.g., opencv-python -> opencv)
+        normalized=$(echo "$package" | tr '_' '-' | tr '[:upper:]' '[:lower:]')
+        
+        # Check if we have a recipe
+        if find "$PYTHON_RECIPES" -name "*${normalized}*.bb" | grep -q .; then
+            echo -e "  ${GREEN}✓${NC} $package"
+        else
+            # Special cases
+            case "$normalized" in
+                opencv-python|opencv-python-headless)
+                    if find "$PYTHON_RECIPES" -name "*opencv*.bb" | grep -q .; then
+                        echo -e "  ${GREEN}✓${NC} $package (as opencv)"
+                    else
+                        echo -e "  ${RED}✗${NC} $package"
+                    fi
+                    ;;
+                *)
+                    echo -e "  ${RED}✗${NC} $package"
+                    ;;
+            esac
+        fi
+    done
+else
+    echo -e "${YELLOW}⚠ Could not fetch requirements file${NC}"
+fi
+rm -f "$TEMP_REQ"
+
+# Summary
+echo
+echo "Validation Summary"
+echo "=================="
+if [ "$SYNTAX_PASSED" = true ]; then
+    echo -e "${GREEN}✓ Syntax validation: PASSED${NC}"
+else
+    echo -e "${RED}✗ Syntax validation: FAILED${NC}"
+fi
+
+echo
+echo "Tips:"
+echo "- Fix syntax errors first before attempting builds"
+echo "- Use recipe-template.bb as a starting point for new recipes"
+echo "- Run './build --clean package-name' to test individual recipes"
+echo "- Check './docs/troubleshooting.md' for common issues"
+
+# Exit with error if syntax validation failed
+if [ "$SYNTAX_PASSED" = false ]; then
+    exit 1
+fi

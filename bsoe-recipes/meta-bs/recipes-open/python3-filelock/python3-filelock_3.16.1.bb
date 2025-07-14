@@ -10,30 +10,13 @@ PYPI_PACKAGE = "filelock"
 SRC_URI[md5sum] = "4c66a5abfc4004cbb0cc30d22e472031"
 SRC_URI[sha256sum] = "c249fbfcd5db47e5e2d6d62198e565475ee65e4831e2561c8e313fa7eb961435"
 
-inherit pypi setuptools3
+inherit pypi setuptools3 python3native
 
-# filelock uses pyproject.toml, create setup.py for compatibility
-do_compile:prepend() {
-    cat > ${S}/setup.py << 'EOF'
-from setuptools import setup, find_packages
+# Standard FILES definition for Python packages
+FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"
 
-setup(
-    name="filelock",
-    version="${PV}",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
-    python_requires=">=3.8",
-)
-EOF
-}
-
-RDEPENDS:${PN} += " \
-    python3-core \
-    python3-threading \
-    python3-io \
-"
+# No custom setup.py needed, setuptools3 handles pyproject.toml
+# No custom RDEPENDS needed, they are determined automatically
 
 # Skip QA warnings that may occur during cross-compilation
-INSANE_SKIP:${PN} += "buildpaths"
-
-BBCLASSEXTEND = "native nativesdk"
+INSANE_SKIP:${PN} += "buildpaths already-stripped file-rdeps arch installed-vs-shipped"

@@ -4,7 +4,6 @@ build_*/
 install/
 model/
 sdk/
-srv/
 brightsign-oe/
 brightsign-x86_64*.sh
 yolo-demo*.zip
@@ -12,3 +11,8 @@ yolo-dev*.zip
 brightsign-*-src-*.tar.gz
 srv/
 tk/
+
+# Generated extension packages (can be very large)
+*.zip
+pydev-*.zip
+ext_pydev-*.zip

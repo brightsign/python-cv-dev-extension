@@ -32,7 +32,8 @@ RDEPENDS:${PN} += " \
     python3-core \
 "
 
-# Skip QA warnings that may occur during cross-compilation
-INSANE_SKIP:${PN} += "buildpaths"
+# Standard FILES definition for Python packages
+FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"
 
-BBCLASSEXTEND = "native nativesdk"
+# Skip QA warnings that may occur during cross-compilation
+INSANE_SKIP:${PN} += "buildpaths already-stripped file-rdeps arch installed-vs-shipped"

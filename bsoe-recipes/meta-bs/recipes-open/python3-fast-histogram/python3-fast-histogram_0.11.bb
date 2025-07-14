@@ -32,7 +32,10 @@ RDEPENDS:${PN} += " \
     python3-core \
 "
 
+# Standard FILES definition for Python packages
+FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"
+
 # May need these for C extension compilation
-INSANE_SKIP:${PN} += "buildpaths"
+INSANE_SKIP:${PN} += "buildpaths already-stripped file-rdeps arch installed-vs-shipped"
 
 BBCLASSEXTEND = "native nativesdk"

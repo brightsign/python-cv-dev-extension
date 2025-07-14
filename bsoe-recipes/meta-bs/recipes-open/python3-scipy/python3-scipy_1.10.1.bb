@@ -36,7 +36,10 @@ RDEPENDS:${PN} += " \
     python3-threading \
 "
 
+# Standard FILES definition for Python packages
+FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"
+
 # SciPy uses compiled C/Fortran extensions
-INSANE_SKIP:${PN} += "buildpaths dev-so"
+INSANE_SKIP:${PN} += "buildpaths dev-so already-stripped file-rdeps arch installed-vs-shipped"
 
 BBCLASSEXTEND = "native nativesdk"
