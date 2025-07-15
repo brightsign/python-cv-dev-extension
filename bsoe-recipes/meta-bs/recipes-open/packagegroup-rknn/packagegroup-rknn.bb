@@ -42,6 +42,7 @@ RDEPENDS:${PN}-dev = " \
     ${PN}-runtime \
     python3-torch \
     python3-onnx \
+    python3-onnxruntime \
     python3-onnxoptimizer \
     python3-sympy \
     python3-json \

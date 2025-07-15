@@ -16,7 +16,6 @@ TOOLCHAIN_HOST_TASK = "\
 
 TOOLCHAIN_TARGET_TASK += "\
     libstdc++ \
-    packagegroup-rknn-runtime \
     packagegroup-rknn-dev \
 "
 

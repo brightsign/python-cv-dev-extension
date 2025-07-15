@@ -193,3 +193,6 @@ For pip-based Python packages, ensure all recipes include:
 - **Pre-build check**: `./check-recipe-syntax.py recipe.bb`
 - **Validate all recipes**: `./validate`
 - **Template for new recipes**: `bsoe-recipes/meta-bs/recipes-devtools/python/recipe-template.bb`
+
+## Git Workflow Memories
+- git commit after every successful build

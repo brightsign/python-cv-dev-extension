@@ -4,20 +4,43 @@ Test script to verify Python CV/ML package installation on BrightSign player.
 """
 
 import sys
+import os
 import importlib
 
-def test_import(module_name, display_name=None, version_attr='__version__'):
+def test_import(module_name, display_name=None, version_attr='__version__', debug=False):
     """Test if a module can be imported and optionally display its version."""
     if display_name is None:
         display_name = module_name
     
     try:
+        # Special handling for PyTorch to debug C extension issues
+        if module_name == 'torch' and debug:
+            print(f"\nDEBUG: Testing PyTorch import...")
+            print(f"  Python paths: {sys.path[:3]}...")
+            print(f"  Working directory: {os.getcwd()}")
+            
+            # Check if torch directory exists
+            for path in sys.path:
+                torch_path = os.path.join(path, 'torch')
+                if os.path.exists(torch_path):
+                    print(f"  Found torch at: {torch_path}")
+                    _c_path = os.path.join(torch_path, '_C')
+                    if os.path.exists(_c_path):
+                        if os.path.isdir(_c_path):
+                            print(f"    WARNING: _C is a directory (should be .so file)")
+                        else:
+                            print(f"    _C exists as file")
+                    else:
+                        print(f"    _C not found")
+        
         module = importlib.import_module(module_name)
         version = getattr(module, version_attr, 'N/A')
         print(f"✓ {display_name:<25} {version}")
         return True
     except ImportError as e:
         print(f"✗ {display_name:<25} FAILED: {e}")
+        if module_name == 'torch' and 'torch._C' in str(e):
+            test_import('torch', 'PyTorch', debug=True)
         return False
     except Exception as e:
         print(f"✗ {display_name:<25} ERROR: {e}")
@@ -41,7 +64,12 @@ def test_library_load():
 def main():
     print("=== BrightSign Python CV/ML Package Test ===")
     print(f"Python version: {sys.version}")
-    print(f"Python executable: {sys.executable}\n")
+    print(f"Python executable: {sys.executable}")
+    print(f"\n=== Environment Debug ===")
+    print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
+    print(f"LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'Not set')}")
+    print(f"Current directory: {os.getcwd()}")
+    print()
     
     print("=== Testing Core CV/ML Packages ===")
     packages = [
@@ -94,6 +122,32 @@ def main():
     
     # Test native libraries
     test_library_load()
+    
+    # Additional RKNN debug if it failed
+    if 'rknn' in [pkg[0] for pkg in packages]:
+        print("\n=== RKNN Import Debug ===")
+        try:
+            # Try to preload the RKNN runtime library
+            import ctypes
+            for lib_path in ['/usr/local/usr/lib/librknnrt.so', 
+                           '/usr/local/lib64/librknnrt.so',
+                           'librknnrt.so']:
+                try:
+                    lib = ctypes.CDLL(lib_path)
+                    print(f"Successfully preloaded RKNN runtime library from {lib_path}")
+                    break
+                except:
+                    continue
+            
+            # Now try importing with preloaded library
+            try:
+                import rknn
+                print("RKNN import successful after preloading library")
+            except ImportError as e:
+                print(f"Error importing RKNN modules: {e}")
+                print("Make sure the RKNN runtime library (librknnrt.so) is available")
+        except Exception as e:
+            print(f"Debug error: {e}")
     
     # Summary
     print("\n=== Summary ===")

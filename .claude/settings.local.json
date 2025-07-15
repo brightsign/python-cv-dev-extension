@@ -65,7 +65,8 @@
       "Bash(./setup --help)",
       "Bash(./validate --help)",
       "Bash(./package --help)",
-      "Bash(./package)"
+      "Bash(./package)",
+      "Bash(./check-recipe-syntax.py bsoe-recipes/meta-bs/recipes-open/brightsign-sdk/brightsign-sdk.bb bsoe-recipes/meta-bs/recipes-open/packagegroup-rknn/packagegroup-rknn.bb)"
     ],
     "deny": []
   }
