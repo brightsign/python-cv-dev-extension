@@ -116,7 +116,7 @@ cd python-cv-dev-extension && export project_root=$(pwd)
 # 2. Build Docker container with pre-built source (~30 min)
 # Source will be downloaded during container build
 docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
-  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build-v3 .
+  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build .
 
 # 3. Build SDK using pre-built image (~30-60 min)
 mkdir -p srv && ./sh/patch-local-conf.sh -y 
@@ -150,10 +150,10 @@ docker build --rm \
   --build-arg USER_ID=$(id -u) \
   --build-arg GROUP_ID=$(id -g) \
   --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 \
-  -t bsoe-build-v3 .
+  -t bsoe-build .
 
 # Verify the image was created successfully
-docker images | grep bsoe-build-v3
+docker images | grep bsoe-build
 ```
 
 ### Run Container Interactively
@@ -164,13 +164,13 @@ docker run -it --rm \
   -v "$(pwd)/bsoe-recipes:/home/builder/patches:ro" \
   -v "$(pwd)/srv:/srv" \
   -w /home/builder/bsoe/brightsign-oe/build \
-  bsoe-build-v3 bash
+  bsoe-build bash
 
 # Interactive shell for vanilla builds (no patches)
 docker run -it --rm \
   -v "$(pwd)/srv:/srv" \
   -w /home/builder/bsoe/brightsign-oe/build \
-  bsoe-build-v3 bash
+  bsoe-build bash
 ```
 
 ### Manual Build Commands Inside Container
@@ -211,7 +211,7 @@ ls tmp-glibc/deploy/ipk/aarch64/python3-*.ipk  # List built packages
 
 ### Docker Build Status ✅
 
-**Latest Build Results**: The Docker image `bsoe-build-v3` has been successfully built and contains:
+**Latest Build Results**: The Docker image `bsoe-build` has been successfully built and contains:
 
 - **BrightSign OS v9.1.52 source code** (19GB downloaded and extracted)
 - **Complete OpenEmbedded/BitBake build environment**
@@ -364,7 +364,7 @@ cd "${project_root:-.}"
 
 # Build the container image with pre-built source (~30 minutes)
 docker build --rm --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
-  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build-v3 .
+  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build .
 
 # Create output directory
 mkdir -p srv
@@ -382,7 +382,7 @@ docker run --rm -it \
     -v "$(pwd)/bsoe-recipes:/home/builder/patches:ro" \
     -v "$(pwd)/srv:/srv" \
     -w /home/builder/bsoe/brightsign-oe/build \
-    bsoe-build-v3 bash
+    bsoe-build bash
 
 # Inside the container, initialize the build environment
 source ../oe-core/oe-init-build-env . ../bitbake
@@ -486,21 +486,20 @@ The pre-built image system embeds source code directly in the Docker image. Here
 
 ```sh
 # Check image size and details
-docker images | grep bsoe-build-v3
+docker images | grep bsoe-build
 docker system df
 
 # Rebuild image with different OS version
-docker build --build-arg BRIGHTSIGN_OS_VERSION=9.1.53 -t bsoe-build-v3 .
+docker build --build-arg BRIGHTSIGN_OS_VERSION=9.1.53 -t bsoe-build .
 
 # Access container for debugging (source already included)
 docker run -it --rm \
   -v $(pwd)/bsoe-recipes:/home/builder/patches:ro \
   -v $(pwd)/srv:/srv \
-  bsoe-build-v3 bash
+  bsoe-build bash
 
 # Clean up old images (frees space)
-docker image prune -f
-docker rmi bsoe-build-v2 bsoe-build  # Remove old versions if they exist
+docker image prune -f  # Clean up old unused images
 ```
 
 ## Step 3 - Package and Install the Extension (⏱️ ~5-10 minutes)
@@ -729,7 +728,7 @@ python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/lo
 
 - **BitBake permission errors**: Use the manual PyTorch fix method above as alternative
 - **BitBake errors**: Check build logs for specific error details
-- **Docker issues**: Ensure Docker daemon is running and image `bsoe-build-v3` exists
+- **Docker issues**: Ensure Docker daemon is running and image `bsoe-build` exists
 - **Disk space**: Monitor with `df -h` - builds require 25+ GB free space
 - **Network timeouts**: Use `wget -c` for resumable downloads
 
@@ -755,7 +754,7 @@ python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/lo
 # Reset Docker environment
 docker system prune -f
 docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
-  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build-v3 .
+  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build .
 
 # Validate recipes and diagnose issues
 ./validate

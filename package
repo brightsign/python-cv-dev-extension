@@ -136,8 +136,21 @@ copy_sdk_components() {
     
     # Copy Python binaries
     log "Copying Python binaries..."
-    cp "$sdk_sysroot/usr/bin/python3"* install/usr/bin/ 2>/dev/null || warn "Some Python binaries not found"
-    cp "$sdk_sysroot/usr/bin/pip3"* install/usr/bin/ 2>/dev/null || warn "Some pip binaries not found"
+    # Use cp -P to preserve symlinks and handle them properly
+    cp -P "$sdk_sysroot/usr/bin/python3" install/usr/bin/ 2>/dev/null || true
+    cp -P "$sdk_sysroot/usr/bin/python3.8" install/usr/bin/ 2>/dev/null || true
+    cp -P "$sdk_sysroot/usr/bin/python3.8-config-lib" install/usr/bin/ 2>/dev/null || true
+    cp -P "$sdk_sysroot/usr/bin/pip3" install/usr/bin/ 2>/dev/null || true
+    cp -P "$sdk_sysroot/usr/bin/pip3.8" install/usr/bin/ 2>/dev/null || true
+    
+    # Fix symlinks to be relative instead of absolute
+    if [[ -L "install/usr/bin/python3" ]]; then
+        cd install/usr/bin
+        ln -sf python3.8 python3
+        ln -sf python3.8-config-lib python3.8-config
+        ln -sf python3.8-config python3-config
+        cd - > /dev/null
+    fi
     
     # Copy libraries
     log "Copying libraries (this may take a few minutes)..."

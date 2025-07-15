@@ -56,32 +56,42 @@ The filesystem on the player is mounted read-only with only two exceptions:
 - **CRITICAL**: BitBake builds are extremely slow (30+ minutes for full SDK)
 - **Testing approach**: 
   1. Verify recipe syntax first (check imports, variables, inheritance)
-  2. Test individual packages: `./patch-n-build.sh python3-packagename` (5-15 min)
+  2. Test individual packages: `./build python3-packagename` (5-15 min)
   3. Only do full SDK builds when individual packages work (30+ min)
   4. Use timeouts of 900000ms (15 min) minimum for individual packages
   5. Use timeouts of 1800000ms (30 min) minimum for SDK builds
 - **Avoid unnecessary clean builds**: Only remove `tmp-glibc` when recipe structure changes
 - **Batch testing**: Fix multiple recipes before testing rather than test-fix-test cycles
+- **Build options**:
+  - `./build` - Build with patches applied (default)
+  - `./build --no-patch` - Build without any patches (vanilla)
 
 ### File Modification Rules
-- **NEVER** modify files in the `brightsign-oe` directory directly
+- **NEVER** modify BrightSign OS source files directly (source exists only inside Docker container)
 - **ALL** changes must be made via rsync/patches from the `bsoe-recipes` directory
-- Use the `patch-n-build.sh` script to apply changes and build targets
-- Can read from `brightsign-oe` directory but never write to it
+- Use the `build` script to apply changes and build targets
+- Source files exist at `/home/builder/bsoe/` inside container only
 
 ### Build Testing
-- Use `patch-n-build.sh` script for testing changes
-- Clean builds: use `./patch-n-build.sh --clean TARGET` or `./patch-n-build.sh --distclean TARGET`
+- Use `build` script for testing changes
+- Clean builds: use `./build --clean TARGET` or `./build --distclean TARGET`
   - `--clean`: Runs bitbake -c cleanall for the target
   - `--distclean`: Removes tmp-glibc and sstate-cache directories (implies --clean)
-- Individual packages can be built/tested: `./patch-n-build.sh python3-package-name`
-- Full SDK build: `./patch-n-build.sh brightsign-sdk` (default)
+- Individual packages can be built/tested: `./build python3-package-name`
+- Full SDK build: `./build brightsign-sdk` (default)
 
 ### Error Log Access
-- Build error logs can be accessed by mapping docker volume paths to host paths
-- Docker path `/home/builder/bsoe` maps to host path `brightsign-oe/`
-- Example: Docker log `/home/builder/bsoe/build/tmp-glibc/work/package/temp/log.do_task.12345` 
-  maps to host `brightsign-oe/build/tmp-glibc/work/package/temp/log.do_task.12345`
+- Build error logs exist only inside the Docker container
+- To access logs, use `docker exec` or run container interactively:
+  ```bash
+  # Run container interactively to examine logs
+  docker run -it --rm \
+    -v "$(pwd)/bsoe-recipes:/home/builder/patches:ro" \
+    -v "$(pwd)/srv:/srv" \
+    -w /home/builder/bsoe/brightsign-oe/build \
+    bsoe-build bash
+  ```
+- Inside container, logs are at: `/home/builder/bsoe/brightsign-oe/build/tmp-glibc/work/*/temp/log.*`
 - This allows reading detailed build logs and debugging specific package failures
 
 ### Python Package Recipe Guidelines
@@ -138,7 +148,7 @@ For pip-based Python packages, ensure all recipes include:
 - **Avoid frequent clean builds**: Only clean `tmp-glibc` when absolutely necessary
 - **Test strategy**: 
   - First verify recipe syntax and basic structure
-  - Test individual packages with `./patch-n-build.sh python3-packagename` 
+  - Test individual packages with `./build python3-packagename` 
   - Only do full SDK builds when individual packages work
   - Use existing build cache when possible
 - **Parallel development**: Work on multiple recipe fixes simultaneously, then test in batch
@@ -147,9 +157,10 @@ For pip-based Python packages, ensure all recipes include:
 ## General Development Memories
 - Test individual packages first before full SDK builds to save time
 - Treat all warnings as errors
-- Use `patch-n-build.sh` for all builds
-  - For clean builds: `./patch-n-build.sh --clean package-name`
-  - For distclean: `./patch-n-build.sh --distclean package-name`
+- Use `build` script for all builds
+  - For clean builds: `./build --clean package-name`
+  - For distclean: `./build --distclean package-name`
+  - For vanilla builds (no patches): `./build --no-patch package-name`
 - Validate recipes before building: `./check-recipe-syntax.py bsoe-recipes/meta-bs/recipes-devtools/python/*.bb`
 - When you have successful individual package builds, test with full SDK build before committing
 
@@ -165,7 +176,7 @@ For pip-based Python packages, ensure all recipes include:
 
 ### "do_compile: Execution failed" 
 - **Cause**: Cross-compilation issues, missing build dependencies
-- **Solution**: Check build logs at `brightsign-oe/build/tmp-glibc/work/*/temp/log.do_compile.*`
+- **Solution**: Run container interactively and check logs at `/home/builder/bsoe/brightsign-oe/build/tmp-glibc/work/*/temp/log.do_compile.*`
 - **Common fixes**: Add missing DEPENDS, ensure proper cross-compilation flags
 
 ### "Files/directories were installed but not shipped"
@@ -175,10 +186,10 @@ For pip-based Python packages, ensure all recipes include:
 
 ### Permission Errors
 - **Cause**: Docker container permission mismatches
-- **Solution**: Run `./patch-n-build.sh --distclean TARGET` to clean and rebuild
+- **Solution**: Run `./build --distclean TARGET` to clean and rebuild
 - **Prevention**: Never run scripts as root
 
 ### Recipe Validation Tools
 - **Pre-build check**: `./check-recipe-syntax.py recipe.bb`
-- **Validate all recipes**: `./validate-recipes.sh`
+- **Validate all recipes**: `./validate`
 - **Template for new recipes**: `bsoe-recipes/meta-bs/recipes-devtools/python/recipe-template.bb`

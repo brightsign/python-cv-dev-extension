@@ -49,8 +49,8 @@ usage() {
     echo "  $0 --distclean brightsign-sdk  # Clean and distclean then build full SDK"
     echo "  $0 brightsign-sdk --extract-sdk  # Build SDK and extract to host"
     echo ""
-    echo "Note: Builds require Docker image 'bsoe-build-v3' with pre-built source"
-    echo "      Build Docker image first: docker build -t bsoe-build-v3 ."
+    echo "Note: Builds require Docker image 'bsoe-build' with pre-built source"
+    echo "      Build Docker image first: docker build -t bsoe-build ."
 }
 
 # Parse command line arguments
@@ -124,11 +124,11 @@ if [ "$VERBOSE" = true ]; then
 fi
 
 # Check if Docker image exists
-if ! docker images | grep -q "^bsoe-build-v3 "; then
-    echo "Error: Docker image 'bsoe-build-v3' not found."
+if ! docker images | grep -q "^bsoe-build "; then
+    echo "Error: Docker image 'bsoe-build' not found."
     echo "Please build the Docker image first:"
     echo "  docker build --rm --build-arg USER_ID=\\$(id -u) --build-arg GROUP_ID=\\$(id -g) \\\\"
-    echo "    --build-arg BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_VERSION} -t bsoe-build-v3 ."
+    echo "    --build-arg BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_VERSION} -t bsoe-build ."
     exit 1
 fi
 
@@ -142,7 +142,7 @@ fi
 DOCKER_CMD="docker run --rm \
     -v \"${SCRIPT_DIR}/srv:/srv\" \
     -w /home/builder/bsoe/brightsign-oe/build \
-    bsoe-build-v3"
+    bsoe-build"
 
 # Add patch volume only if patches will be applied
 if [ "$NO_PATCH" != true ]; then
@@ -150,7 +150,7 @@ if [ "$NO_PATCH" != true ]; then
         -v \"${SCRIPT_DIR}/bsoe-recipes:/home/builder/patches:ro\" \
         -v \"${SCRIPT_DIR}/srv:/srv\" \
         -w /home/builder/bsoe/brightsign-oe/build \
-        bsoe-build-v3"
+        bsoe-build"
 fi
 
 # Apply patches if not --no-patch mode

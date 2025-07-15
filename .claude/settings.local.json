@@ -64,7 +64,8 @@
       "Bash(./build --help)",
       "Bash(./setup --help)",
       "Bash(./validate --help)",
-      "Bash(./package --help)"
+      "Bash(./package --help)",
+      "Bash(./package)"
     ],
     "deny": []
   }

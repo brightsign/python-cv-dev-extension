@@ -26,7 +26,7 @@ The solution moves BrightSign OS source management inside Docker containers usin
 - `scripts/setup-source.sh`: Downloads and extracts BrightSign OS source inside container
 - `scripts/setup-patches.sh`: Applies patches from mounted directory
 - `scripts/docker-entrypoint.sh`: Automatically runs setup on container start
-- `patch-n-build-v2.sh`: New build script using Docker volumes
+- `build.sh`: New build script using Docker volumes
 
 ### 3. Docker Volume Usage
 - `bsoe-source`: Named volume for BrightSign OS source (persistent)
@@ -48,16 +48,16 @@ docker build --rm \
 ### 2. Use New Build Script
 ```bash
 # Build full SDK
-./patch-n-build-v2.sh
+./build.sh
 
 # Build specific package
-./patch-n-build-v2.sh python3-tqdm
+./build.sh python3-tqdm
 
 # Clean build
-./patch-n-build-v2.sh --clean python3-opencv
+./build.sh --clean python3-opencv
 
 # Extract SDK after build
-./patch-n-build-v2.sh brightsign-sdk --extract-sdk
+./build.sh brightsign-sdk --extract-sdk
 ```
 
 ### 3. Manual Container Access
@@ -101,7 +101,7 @@ docker run --rm -v bsoe-source:/data busybox rm -rf /data/*
 ### Accessing Build Artifacts
 Build artifacts are still accessible via srv directory or can be extracted:
 ```bash
-./patch-n-build-v2.sh brightsign-sdk --extract-sdk
+./build.sh brightsign-sdk --extract-sdk
 ```
 
 ### Debugging Inside Container
@@ -114,4 +114,4 @@ docker run -it --rm \
 
 ## Backward Compatibility
 
-The original `patch-n-build.sh` script remains available but is deprecated. Users should migrate to `patch-n-build-v2.sh` to avoid permission issues.
+The original `patch-n-build.sh` script remains available but is deprecated. Users should migrate to `build.sh` to avoid permission issues.

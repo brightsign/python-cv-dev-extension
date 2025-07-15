@@ -14,9 +14,18 @@ inherit pypi setuptools3
 
 DEPENDS += " \
     python3-numpy-native \
+    python3-numpy \
     python3-pybind11-native \
     python3-cython-native \
     python3-pip-native \
+    python3-setuptools-native \
+    python3-wheel-native \
+"
+
+# Configuration for SciPy build without external BLAS/LAPACK
+EXTRA_OESETUP = " \
+    --disable-atlas \
+    --disable-lapack \
 "
 
 # Ensure Cython is available in PATH and create cython symlink
@@ -26,6 +35,17 @@ do_compile:prepend() {
     if [ ! -f "${STAGING_BINDIR_NATIVE}/cython" ] && [ -f "${STAGING_BINDIR_NATIVE}/cython3" ]; then
         ln -sf cython3 "${STAGING_BINDIR_NATIVE}/cython"
     fi
+    
+    # Configure for minimal BLAS/LAPACK requirements  
+    export NPY_NUM_BUILD_JOBS="${PARALLEL_MAKE}"
+    export SCIPY_USE_PROPACK=0
+    export NPY_BLAS_ORDER=""
+    export NPY_LAPACK_ORDER=""
+    
+    # Use NumPy's internal linear algebra routines
+    export BLAS=None
+    export LAPACK=None
+    export ATLAS=None
 }
 
 RDEPENDS:${PN} += " \
@@ -34,6 +54,9 @@ RDEPENDS:${PN} += " \
     python3-math \
     python3-ctypes \
     python3-threading \
+    python3-pickle \
+    python3-json \
+    python3-compression \
 "
 
 # Standard FILES definition for Python packages

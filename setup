@@ -145,7 +145,7 @@ setup_docker() {
         --build-arg GROUP_ID=$(id -g) \
         --build-arg BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_VERSION} \
         --ulimit memlock=-1:-1 \
-        -t bsoe-build-v3 . || error "Failed to build Docker image"
+        -t bsoe-build . || error "Failed to build Docker image"
     
     # Create srv directory
     mkdir -p srv
