@@ -1,0 +1,58 @@
+#!/bin/bash
+# Extension status check script
+# Single Responsibility: Report extension component status
+
+SCRIPT_DIR=$(dirname $(realpath $0))
+EXTENSION_HOME=$(dirname ${SCRIPT_DIR})
+
+# Check Python installation
+if [ -x "${EXTENSION_HOME}/usr/bin/python3.8" ]; then
+    echo "  Python binary: Found"
+    version=$(${EXTENSION_HOME}/usr/bin/python3.8 --version 2>&1)
+    echo "  Python version: ${version}"
+else
+    echo "  Python binary: NOT FOUND"
+fi
+
+# Python access method
+echo "  Python access: via 'source setup_python_env' or 'source sh/setup_python_env'"
+
+# Check RKNN library
+if [ -f "${EXTENSION_HOME}/usr/lib/librknnrt.so" ]; then
+    echo "  RKNN library: Found"
+else
+    echo "  RKNN library: Not found"
+fi
+
+# Check user init directory and security settings
+ENABLE_USER_SCRIPTS=$(registry extension bsext-pydev-enable-user-scripts 2>/dev/null)
+if [[ "${ENABLE_USER_SCRIPTS,,}" =~ ^(true|yes|1)$ ]]; then
+    echo "  User scripts: ENABLED"
+    
+    if [ -d "/storage/sd/python-init" ]; then
+        count=$(find /storage/sd/python-init -name "*.sh" -type f 2>/dev/null | wc -l)
+        echo "  User init scripts: $count .sh script(s) found"
+        
+        # Check for requirements.txt
+        if [ -f "/storage/sd/python-init/requirements.txt" ]; then
+            echo "  Requirements file: Found"
+        else
+            echo "  Requirements file: Not found"
+        fi
+    else
+        echo "  User init scripts: Directory not present"
+    fi
+else
+    echo "  User scripts: DISABLED (security: scripts run as root)"
+    echo "  To enable: registry write extension bsext-pydev-enable-user-scripts true"
+fi
+
+# Check pip packages directory
+if [ -d "/usr/local/lib/python3.8/site-packages" ]; then
+    count=$(find /usr/local/lib/python3.8/site-packages -maxdepth 1 -type d 2>/dev/null | wc -l)
+    echo "  User pip packages: $((count-1)) package(s) installed"
+else
+    echo "  User pip packages: Directory not present"
+fi
+
+exit 0

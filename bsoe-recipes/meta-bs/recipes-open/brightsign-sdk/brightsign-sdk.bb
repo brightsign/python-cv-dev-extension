@@ -16,8 +16,16 @@ TOOLCHAIN_HOST_TASK = "\
 
 TOOLCHAIN_TARGET_TASK += "\
     libstdc++ \
-    packagegroup-rknn-dev \
+    opencv \
+    python3-core \
+    python3-modules \
+    python3-dev \
+    python3-numpy \
+    python3-pillow \
+    python3-pip \
 "
+#     packagegroup-rknn \
+#
 
 # The filename ends up with "toolchain" in it later (via
 # TOOLCHAIN_OUTPUTNAME) so we don't really need to say "sdk".

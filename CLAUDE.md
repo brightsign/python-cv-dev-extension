@@ -39,8 +39,23 @@ The filesystem on the player is mounted read-only with only two exceptions:
 ## Deploying, Testing, and Validating
 
 * Extensions must be hand-deployed to the player and cannot be automated. I copy them, expand them, and reboot the player to get them installed.
-* once installed, the extension is validated bny creating an SSH connection to the player, getting to a shell, starting python, and using the REPL to load packages, etc.
+* once installed, the extension is validated by creating an SSH connection to the player, getting to a shell, starting python, and using the REPL to load packages, etc.
 * the final test is to run the `yolox` example (python) from the `rknn_model_zoo`
+
+### BrightSign SSH/Shell Limitations
+
+BrightSign players use **busybox/dropbear** SSH, which has significant limitations compared to standard SSH:
+
+- **No standard shell**: Commands like `ssh user@host "command"` don't work normally
+- **Limited command execution**: Standard SSH command execution (`-c` flag behavior) is not supported
+- **File operations only**: SCP works for file transfers, but interactive shell commands via SSH are limited
+- **Manual interaction required**: Most administrative tasks require interactive SSH sessions rather than scripted commands
+
+**Deployment implications**:
+- Use SCP for file transfers (works normally)
+- Directory creation must be done via file operations or manual SSH
+- Permission changes (chmod) require manual SSH session
+- Status checks and command execution require manual SSH session
 
 ## Important Notes
 
@@ -196,3 +211,18 @@ For pip-based Python packages, ensure all recipes include:
 
 ## Git Workflow Memories
 - git commit after every successful build
+- **Memory**: fully test your changes with a build
+
+## Development Environment Memories
+- the install directory is a staging directory.  when making changes, they should be made elsewhere and copied into install
+
+## Design and Architecture Memories
+- consider separation of concerns and SOLID design principles
+- bear in mind separation of concerns for all scripts, instructions, and build process
+
+## Test and Validation Memories
+- Always test your recipe overlay changes by running the `build --extract-sdk` tool every time
+- Fix all warnings and errors until the build comes up clean
+
+## Script and Command Memories
+- In all scripts use `source` instead of `.` for clarity and compatibility

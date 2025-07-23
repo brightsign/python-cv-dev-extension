@@ -14,7 +14,6 @@ inherit pypi setuptools3
 
 DEPENDS += " \
     python3-protobuf-native \
-    python3-numpy-native \
     protobuf-native \
     cmake-native \
     python3-pybind11-native \
@@ -22,11 +21,15 @@ DEPENDS += " \
 
 RDEPENDS:${PN} += " \
     python3-protobuf \
-    python3-numpy \
     python3-typing-extensions \
     python3-core \
     python3-ctypes \
 "
+
+# Dependencies to add later:
+# DEPENDS: python3-numpy-native \
+# RDEPENDS: python3-numpy \
+#
 
 # Environment variables for the build
 ONNX_ML = "1"

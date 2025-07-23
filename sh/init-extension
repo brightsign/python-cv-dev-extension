@@ -1,0 +1,27 @@
+#!/bin/bash
+# Extension initialization script
+# Called by bsext_init during start
+
+set -e
+
+SCRIPT_DIR=$(dirname $(realpath $0))
+EXTENSION_HOME=$(dirname ${SCRIPT_DIR})
+
+echo "Initializing Python Development Extension..."
+
+# Source the Python environment setup
+if [ -f "${SCRIPT_DIR}/setup_python_env" ]; then
+    # Source the environment setup (no cd needed - script is path-independent)
+    source "${SCRIPT_DIR}/setup_python_env"
+else
+    echo "Error: setup_python_env not found at ${SCRIPT_DIR}/setup_python_env"
+    exit 1
+fi
+
+# Run user initialization if configured
+if [ -x "${SCRIPT_DIR}/run-user-init" ]; then
+    "${SCRIPT_DIR}/run-user-init"
+fi
+
+echo "Python Development Extension initialized successfully"
+exit 0

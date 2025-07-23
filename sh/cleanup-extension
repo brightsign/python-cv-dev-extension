@@ -1,0 +1,19 @@
+#!/bin/bash
+# Extension cleanup script
+# Called by bsext_init during stop
+
+SCRIPT_DIR=$(dirname $(realpath $0))
+EXTENSION_HOME=$(dirname ${SCRIPT_DIR})
+
+echo "Cleaning up extension..."
+
+# Note: No system symlinks to remove - not created during init
+
+# Clean up any extension-created temporary symlinks
+if [ -d "/usr/local/lib64" ]; then
+    # Only remove symlinks pointing to our extension
+    find /usr/local/lib64 -type l -lname "${EXTENSION_HOME}/*" -delete 2>/dev/null || true
+fi
+
+echo "Extension cleanup completed"
+exit 0

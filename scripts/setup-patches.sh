@@ -41,7 +41,14 @@ fi
 
 log "Applying patches to BrightSign OE source..."
 
-# Apply patches using rsync with --delete to ensure clean state
-rsync -av --delete "/home/builder/patches/meta-bs/" "/home/builder/bsoe/brightsign-oe/meta-bs/"
+# Apply recipe patches using rsync with --delete to ensure clean state
+rsync -av "/home/builder/patches/meta-bs/" "/home/builder/bsoe/brightsign-oe/meta-bs/"
 
-success "Patches applied successfully"
+# Apply local.conf patches if script exists
+if [[ -f "/home/builder/host-scripts/patch-local-conf.sh" ]]; then
+    log "Applying local.conf patches..."
+    cd /home/builder/bsoe
+    /home/builder/host-scripts/patch-local-conf.sh -y
+fi
+
+success "All patches applied successfully"

@@ -42,7 +42,6 @@ DEPENDS = "python3-pip-native python3-setuptools-native"
 
 RDEPENDS:${PN} += " \
     python3-core \
-    python3-numpy \
     python3-protobuf \
     python3-ruamel-yaml \
     python3-ctypes \
@@ -52,6 +51,10 @@ RDEPENDS:${PN} += " \
     python3-logging \
     librknnrt \
 "
+
+# Dependencies to add later:
+# RDEPENDS: python3-numpy \
+#
 
 # Standard FILES definition for Python packages
 FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"

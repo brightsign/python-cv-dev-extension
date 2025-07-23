@@ -15,7 +15,6 @@ inherit python3-dir
 DEPENDS += "unzip-native"
 
 RDEPENDS:${PN} += " \
-    python3-numpy \
     python3-protobuf \
     python3-flatbuffers \
     python3-packaging \
@@ -24,6 +23,10 @@ RDEPENDS:${PN} += " \
     python3-ctypes \
     python3-threading \
 "
+
+# Dependencies to add later:
+# RDEPENDS: python3-numpy \
+#
 
 # Only for ARM64 targets
 COMPATIBLE_MACHINE = "cobra|pantera"

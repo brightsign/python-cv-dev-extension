@@ -32,11 +32,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Check if local.conf exists
+# Create local.conf if it doesn't exist
 if [ ! -f "$LOCAL_CONF" ]; then
-    echo "Error: local.conf not found at $LOCAL_CONF"
-    echo "Please ensure BrightSign OE is properly extracted."
-    exit 1
+    echo "local.conf not found, creating it..."
+    mkdir -p "$(dirname "$LOCAL_CONF")"
+    touch "$LOCAL_CONF"
 fi
 
 echo "Patching local.conf for Python CV Extension build..."

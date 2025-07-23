@@ -1,0 +1,21 @@
+#!/bin/sh
+# Convenience script to set up BRIGHTSIGN_PYTHON_EXTENSION_HOME and source setup_python_env
+# Usage: source pydev-env
+# Can be run from any directory - automatically finds extension and sets environment
+
+# Find the extension home directory based on this script's location
+SCRIPT_DIR="$( cd "$( dirname "$0" )" 2>/dev/null && pwd )"
+
+if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/setup_python_env" ]; then
+    # We're in the sh/ directory of the extension
+    EXTENSION_HOME=$(dirname "$SCRIPT_DIR")
+    export BRIGHTSIGN_PYTHON_EXTENSION_HOME="$EXTENSION_HOME"
+    echo "Set BRIGHTSIGN_PYTHON_EXTENSION_HOME=$EXTENSION_HOME"
+    
+    # Source the main setup script
+    . "$SCRIPT_DIR/setup_python_env"
+else
+    echo "Error: Cannot locate extension from pydev-env script location"
+    echo "This script should be in the sh/ directory of the extension"
+    return 1 2>/dev/null || exit 1
+fi

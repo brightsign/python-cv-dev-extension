@@ -91,49 +91,51 @@ done
 # Check prerequisites
 check_prerequisites() {
     log "Checking prerequisites..."
-    
+
     # Check if SDK exists
     if [[ ! -d "sdk" ]]; then
         error "SDK directory not found. Please extract the SDK first."
     fi
-    
+
     if [[ ! -d "sdk/sysroots/aarch64-oe-linux" ]]; then
-        error "SDK sysroot not found. Please check SDK installation."
+        error "SDK sysroot not found. Run: ./build --extract-sdk && ./brightsign-x86_64-cobra-toolchain-*.sh -d ./sdk -y"
     fi
-    
+
     # Check for required scripts
     if [[ ! -f "sh/make-extension-lvm" ]]; then
         error "make-extension-lvm script not found"
     fi
-    
-    if [[ ! -f "test_cv_packages.py" ]]; then
-        error "test_cv_packages.py not found"
+
+    # Check for user init examples
+    if [[ ! -d "user-init" ]]; then
+        warn "user-init directory not found"
     fi
-    
+
     success "Prerequisites check passed"
 }
 
 # Create install directory structure
 create_install_structure() {
     log "Creating extension package structure..."
-    
+
     if [[ "$CLEAN" == "true" ]]; then
         log "Cleaning existing install directory..."
         rm -rf install
     fi
-    
+
     # Create directory structure
-    mkdir -p install/{usr/{bin,lib},python-apps}
-    
+    mkdir -p install/{usr/{bin,lib},sh}
+
     success "Directory structure created"
 }
 
 # Copy SDK components
 copy_sdk_components() {
-    log "Copying Python runtime and libraries from SDK..."
-    
     local sdk_sysroot="sdk/sysroots/aarch64-oe-linux"
-    
+
+
+    log "Copying Python runtime and libraries from SDK..."
+
     # Copy Python binaries
     log "Copying Python binaries..."
     # Use cp -P to preserve symlinks and handle them properly
@@ -142,7 +144,7 @@ copy_sdk_components() {
     cp -P "$sdk_sysroot/usr/bin/python3.8-config-lib" install/usr/bin/ 2>/dev/null || true
     cp -P "$sdk_sysroot/usr/bin/pip3" install/usr/bin/ 2>/dev/null || true
     cp -P "$sdk_sysroot/usr/bin/pip3.8" install/usr/bin/ 2>/dev/null || true
-    
+
     # Fix symlinks to be relative instead of absolute
     if [[ -L "install/usr/bin/python3" ]]; then
         cd install/usr/bin
@@ -151,67 +153,71 @@ copy_sdk_components() {
         ln -sf python3.8-config python3-config
         cd - > /dev/null
     fi
-    
+
     # Copy libraries
     log "Copying libraries (this may take a few minutes)..."
     cp -r "$sdk_sysroot/usr/lib" install/usr/
-    
-    # Copy test script and setup files
+
+    # Copy setup files (test scripts now in user-init/)
     log "Copying support files..."
-    cp test_cv_packages.py install/python-apps/
-    cp sh/setup_python_env install/
-    
+    # Note: setup_python_env is copied with other scripts in add_extension_scripts()
+
     success "SDK components copied"
 }
 
 # Add extension scripts
 add_extension_scripts() {
     log "Adding extension management scripts..."
-    
+
     # Copy and make executable
-    cp bsext_init install/ && chmod +x install/bsext_init
-    cp sh/setup_python_env install/ && chmod +x install/setup_python_env  
+    cp sh/bsext_init install/ && chmod +x install/bsext_init
     cp sh/uninstall.sh install/ && chmod +x install/uninstall.sh
-    
+
+    # Copy supporting scripts
+    mkdir -p install/sh
+    cp sh/{init-extension,cleanup-extension,check-status,run-user-init,setup_python_env,pydev-env} install/sh/
+    chmod +x install/sh/*
+
     success "Extension scripts added"
 }
 
 # Verify installation structure
 verify_structure() {
     log "Verifying installation structure..."
-    
+
     local errors=0
-    
+
     # Check essential directories
-    for dir in "usr/bin" "usr/lib" "python-apps"; do
+    for dir in "usr/bin" "usr/lib" "sh"; do
         if [[ ! -d "install/$dir" ]]; then
             error "Missing directory: install/$dir"
             ((errors++))
         fi
     done
-    
+
     # Check essential files
     local essential_files=(
         "bsext_init"
-        "setup_python_env" 
         "uninstall.sh"
-        "python-apps/test_cv_packages.py"
+        "sh/init-extension"
+        "sh/cleanup-extension"
+        "sh/setup_python_env"
         "usr/bin/python3"
     )
-    
+
     for file in "${essential_files[@]}"; do
         if [[ ! -f "install/$file" ]]; then
             warn "Missing file: install/$file"
             ((errors++))
         fi
     done
-    
+
     if [[ $errors -eq 0 ]]; then
         success "Structure verification passed"
     else
         warn "Structure verification found $errors issues"
     fi
-    
+
     # Show package size
     local install_size=$(du -sh install/ 2>/dev/null | cut -f1)
     log "Extension package size: $install_size"
@@ -220,47 +226,48 @@ verify_structure() {
 # Create development package
 create_development_package() {
     log "Creating development package..."
-    
+
     cd install
     zip -r "../$DEVELOPMENT_PACKAGE" ./ >/dev/null
     cd ..
-    
+
     local package_size=$(du -sh "$DEVELOPMENT_PACKAGE" 2>/dev/null | cut -f1)
     success "Development package created: $DEVELOPMENT_PACKAGE ($package_size)"
-    
+
     echo ""
     echo "Development Package Usage:"
     echo "1. Transfer $DEVELOPMENT_PACKAGE to player via DWS"
-    echo "2. On player: mkdir -p /usr/local/pydev && cd /usr/local/pydev"
+    echo "2. On player: mkdir -p /usr/local && cd /usr/local"
     echo "3. On player: unzip /storage/sd/$DEVELOPMENT_PACKAGE"
-    echo "4. On player: source ./setup_python_env"
+    echo "4. On player: source sh/pydev-env"
+    echo "   Alternative: source sh/setup_python_env (auto-detects location)"
     echo "Note: Development installation is volatile (lost on reboot)"
 }
 
 # Create extension package
 create_extension_package() {
     log "Creating production extension package..."
-    
+
     cd install
-    
+
     # Run make-extension script
     ../sh/make-extension-lvm || error "Extension creation failed"
-    
+
     # Package the extension
     zip "../$EXTENSION_PACKAGE" ext_pydev* >/dev/null
-    
+
     # Clean up temporary files
     rm -rf ext_pydev*
-    
+
     cd ..
-    
+
     local package_size=$(du -sh "$EXTENSION_PACKAGE" 2>/dev/null | cut -f1)
     success "Extension package created: $EXTENSION_PACKAGE ($package_size)"
-    
+
     echo ""
     echo "Extension Package Usage:"
     echo "1. Transfer $EXTENSION_PACKAGE to player via DWS"
-    echo "2. On player: mkdir -p /usr/local/pydev && cd /usr/local/pydev"
+    echo "2. On player: mkdir -p /usr/local && cd /usr/local"
     echo "3. On player: unzip /storage/sd/$EXTENSION_PACKAGE"
     echo "4. On player: bash ./ext_pydev_install-lvm.sh"
     echo "5. On player: reboot"
@@ -284,20 +291,20 @@ run_validation() {
 main() {
     echo "BrightSign Python CV Extension - Package Creation"
     echo "================================================"
-    
+
     local start_time=$(date +%s)
-    
+
     check_prerequisites
     echo ""
-    
+
     create_install_structure
     copy_sdk_components
     add_extension_scripts
     echo ""
-    
+
     verify_structure
     echo ""
-    
+
     # Create packages based on options
     if [[ "$EXT_ONLY" == "true" ]]; then
         create_extension_package
@@ -308,15 +315,15 @@ main() {
         echo ""
         create_extension_package
     fi
-    
+
     run_validation
-    
+
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
-    
+
     echo ""
     success "Packaging completed in $(($duration / 60))m $(($duration % 60))s"
-    
+
     # Show created packages
     echo ""
     echo "Created packages:"
@@ -326,12 +333,12 @@ main() {
     if [[ "$DEV_ONLY" != "true" ]]; then
         echo "  📦 $EXTENSION_PACKAGE (production)"
     fi
-    
+
     echo ""
     echo "Next steps:"
     echo "1. Transfer package(s) to BrightSign player"
     echo "2. Install using instructions shown above"
-    echo "3. Test with: python3 /var/volatile/bsext/ext_pydev/python-apps/test_cv_packages.py"
+    echo "3. Test with user init scripts from user-init/"
 }
 
 # Run main function if script is executed directly

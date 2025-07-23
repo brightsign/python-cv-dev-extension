@@ -1,0 +1,85 @@
+#!/bin/bash
+# Runs user-provided initialization scripts
+# Single Responsibility: Execute user initialization scripts
+# Only supports shell (.sh) scripts executed with bash (due to noexec mount)
+
+USER_INIT_DIR="/storage/sd/python-init"
+
+# Check if user scripts are enabled via registry (security feature)
+# User scripts run as root, so they must be explicitly enabled
+ENABLE_USER_SCRIPTS=$(registry extension bsext-pydev-enable-user-scripts 2>/dev/null)
+if [[ ! "${ENABLE_USER_SCRIPTS,,}" =~ ^(true|yes|1)$ ]]; then
+    echo "User scripts are disabled (security: scripts run as root)"
+    echo "To enable: registry write extension bsext-pydev-enable-user-scripts true"
+    exit 0
+fi
+
+if [ ! -d "${USER_INIT_DIR}" ]; then
+    # No user init directory - this is normal when user scripts are enabled
+    echo "User scripts enabled but no ${USER_INIT_DIR} directory found"
+    exit 0
+fi
+
+# First, check for and install requirements.txt if it exists
+REQUIREMENTS_FILE="${USER_INIT_DIR}/requirements.txt"
+INSTALL_LOG="${USER_INIT_DIR}/requirements-install.log"
+
+if [ -f "${REQUIREMENTS_FILE}" ]; then
+    echo "Found requirements.txt, installing packages..."
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Installing packages from requirements.txt" > "${INSTALL_LOG}"
+
+    # Check if pip3 is available
+    if command -v pip3 >/dev/null 2>&1; then
+        # Install packages with appropriate flags for embedded systems
+        if pip3 install --only-binary=:all: -r "${REQUIREMENTS_FILE}" >> "${INSTALL_LOG}" 2>&1; then
+            echo "  Success: Packages installed from requirements.txt"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Package installation completed successfully" >> "${INSTALL_LOG}"
+        else
+            echo "  Failed: Package installation from requirements.txt (see ${INSTALL_LOG})"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Package installation failed" >> "${INSTALL_LOG}"
+        fi
+    else
+        echo "  Warning: pip3 not found, skipping package installation"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] pip3 not found, skipping installation" >> "${INSTALL_LOG}"
+    fi
+else
+    echo "No requirements.txt found, skipping package installation"
+fi
+
+# Run all executable .sh files in alphabetical order
+found_scripts=false
+found_disabled_scripts=false
+for script in "${USER_INIT_DIR}"/*.sh; do
+    # Check if glob expansion found any files
+    if [ ! -f "$script" ]; then
+        continue
+    fi
+
+    script_name=$(basename "$script")
+
+    # Check if script has executable bit set (allows toggling on/off)
+    if [ -x "$script" ]; then
+        found_scripts=true
+        echo "Running user init script: $script_name"
+
+        # Use bash to execute since /storage/sd is mounted noexec
+        if bash "$script" 2>&1; then
+            echo "  Success: $script_name"
+        else
+            echo "  Failed: $script_name (exit code: $?)"
+        fi
+    else
+        found_disabled_scripts=true
+        echo "Skipping disabled script: $script_name (not executable)"
+    fi
+done
+
+if [ "$found_scripts" = false ]; then
+    if [ "$found_disabled_scripts" = true ]; then
+        echo "No executable .sh scripts found in ${USER_INIT_DIR} (some scripts are disabled)"
+    else
+        echo "No .sh user init scripts found in ${USER_INIT_DIR}"
+    fi
+fi
+
+exit 0

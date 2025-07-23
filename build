@@ -40,6 +40,7 @@ usage() {
     echo "  -q, --quiet         Use quieter build output."
     echo "  -v, --verbose       Enable verbose output."
     echo "  -h, --help          Show this help message."
+    echo "  --interactive       Launch container and keep interactive shell."
     echo ""
     echo "Examples:"
     echo "  $0                          # Build full SDK with patches applied"
@@ -85,6 +86,10 @@ while [[ $# -gt 0 ]]; do
             usage
             exit 0
             ;;
+        --interactive)
+            INTERACTIVE=true
+            shift
+            ;;
         -*)
             echo "Unknown option: $1"
             usage
@@ -106,6 +111,17 @@ done
 # Set default target if not provided
 if [ -z "$TARGET" ]; then
     TARGET="brightsign-sdk"
+fi
+
+# Interactive shell option
+if [ "$INTERACTIVE" = true ]; then
+    echo "Launching interactive shell in Docker container..."
+    docker run --rm -it \
+        -v "${SCRIPT_DIR}/srv:/srv" \
+        -v "${SCRIPT_DIR}/bsoe-recipes:/home/builder/patches:ro" \
+        -w /home/builder/bsoe/brightsign-oe/build \
+        bsoe-build bash
+    exit 0
 fi
 
 # Verbose output
@@ -148,59 +164,54 @@ DOCKER_CMD="docker run --rm \
 if [ "$NO_PATCH" != true ]; then
     DOCKER_CMD="docker run --rm \
         -v \"${SCRIPT_DIR}/bsoe-recipes:/home/builder/patches:ro\" \
+        -v \"${SCRIPT_DIR}/sh:/home/builder/host-scripts:ro\" \
         -v \"${SCRIPT_DIR}/srv:/srv\" \
         -w /home/builder/bsoe/brightsign-oe/build \
         bsoe-build"
 fi
 
-# Apply patches if not --no-patch mode
-if [ "$NO_PATCH" != true ]; then
-    echo "Applying patches to BrightSign OE source..."
-    eval "$DOCKER_CMD bash -c \"/usr/local/bin/setup-patches.sh\""
-    echo "✅ Patches applied"
-else
-    echo "Building without patches (vanilla build)..."
+# Build command construction
+BUILD_CMD="MACHINE=cobra ./bsbb $QUIET_FLAG ${TARGET}"
+
+# Add SDK extraction if requested
+if [ "$EXTRACT_SDK" = true ] && [ "$TARGET" = "brightsign-sdk" ]; then
+    BUILD_CMD="$BUILD_CMD && if [ -d tmp-glibc/deploy/sdk ]; then cp tmp-glibc/deploy/sdk/brightsign-x86_64-*-toolchain-*.sh /srv/ 2>/dev/null || true; echo 'SDK copied to /srv for extraction'; fi"
 fi
 
-# Distclean if requested - this is done inside the container
+# Construct full container command
+CONTAINER_CMD=""
+
+# Add distclean if requested
 if [ "$DISTCLEAN" = true ]; then
-    echo "Performing distclean inside container..."
-    eval "$DOCKER_CMD bash -c \"
-        if [ -d /home/builder/bsoe/brightsign-oe/build/tmp-glibc ]; then
-            rm -rf /home/builder/bsoe/brightsign-oe/build/tmp-glibc
-            echo 'Removed tmp-glibc'
-        fi
-        if [ -d /home/builder/bsoe/brightsign-oe/sstate-cache ]; then
-            rm -rf /home/builder/bsoe/brightsign-oe/sstate-cache
-            echo 'Removed sstate-cache'
-        fi
-    \""
+    echo "Will perform distclean inside container..."
+    CONTAINER_CMD="$CONTAINER_CMD if [ -d /home/builder/bsoe/brightsign-oe/build/tmp-glibc ]; then rm -rf /home/builder/bsoe/brightsign-oe/build/tmp-glibc; echo 'Removed tmp-glibc'; fi; "
+    CONTAINER_CMD="$CONTAINER_CMD if [ -d /home/builder/bsoe/brightsign-oe/sstate-cache ]; then rm -rf /home/builder/bsoe/brightsign-oe/sstate-cache; echo 'Removed sstate-cache'; fi; "
 fi
 
-# Clean if requested
+# Add patch application if not --no-patch mode
+if [ "$NO_PATCH" != true ]; then
+    echo "Will apply patches and build $TARGET..."
+    CONTAINER_CMD="$CONTAINER_CMD /usr/local/bin/setup-patches.sh && "
+else
+    echo "Building $TARGET without patches (vanilla build)..."
+fi
+
+# Add clean if requested
 if [ "$CLEAN" = true ]; then
-    echo "Cleaning previous build artifacts for $TARGET..."
-    eval "$DOCKER_CMD bash -c \"MACHINE=cobra ./bsbb -c cleanall $TARGET 2>/dev/null || true\""
+    echo "Will clean previous build artifacts for $TARGET..."
+    CONTAINER_CMD="$CONTAINER_CMD MACHINE=cobra ./bsbb -c cleanall $TARGET 2>/dev/null || true; "
 fi
 
-# Build the target
+# Add the main build command
+CONTAINER_CMD="$CONTAINER_CMD $BUILD_CMD"
+
+# Execute everything in a single container run
 echo "Building $TARGET..."
 if [ "$TARGET" = "brightsign-sdk" ]; then
     echo "Warning: Full SDK build may take 30+ minutes depending on your system"
 fi
 
-# For SDK builds with extraction, modify the build command to copy SDK to /srv
-if [ "$EXTRACT_SDK" = true ] && [ "$TARGET" = "brightsign-sdk" ]; then
-    eval "$DOCKER_CMD bash -c \"
-        MACHINE=cobra ./bsbb $QUIET_FLAG ${TARGET} && 
-        if [ -d tmp-glibc/deploy/sdk ]; then 
-            cp tmp-glibc/deploy/sdk/brightsign-x86_64-*-toolchain-*.sh /srv/ 2>/dev/null || true
-            echo 'SDK copied to /srv for extraction'
-        fi
-    \""
-else
-    eval "$DOCKER_CMD bash -c \"MACHINE=cobra ./bsbb $QUIET_FLAG ${TARGET}\""
-fi
+eval "$DOCKER_CMD bash -c \"$CONTAINER_CMD\""
 
 if [ $? -eq 0 ]; then
     echo "✅ $TARGET built successfully"

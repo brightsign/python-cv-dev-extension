@@ -1,110 +1,468 @@
 # BrightSign Python Extension for CV Development (ALPHA RELEASE)
 
-This is an example BrightSign System Extension that provides Python and related packages necessary for developing Computer Vision systems on a BrightSign player. This project can also be used as foundation for developing an extension to deliver a CV System using Python.
+## Overview
+
+Python CV development extension for BrightSign digital signage players (embedded ARM64 Linux devices with NPU acceleration).
+
+__Provides__: Python 3.8, OpenCV, PyTorch, ONNX, RKNN toolkit, scientific computing stack and an extensible Python development environment
+
+__Target__: Enterprise edge CV applications (audience analytics, interactive displays, retail analytics)  
+
+__Key requirement__: x86_64 development host (Apple Silicon incompatible due to RKNN toolchain)
+
+### Core Concepts
+
+- **Extensions**: System-level add-ons that persist across reboots
+- __Cross-compilation__: Build on x86_64 for ARM64 target
+- **NPU/RKNN**: Rockchip Neural Processing Unit + optimization toolkit (~10x inference speedup)
+- **BrightSign OS**: Read-only Linux optimized for signage reliability
+
+---
 
 ## Supported Players
 
 | player | minimum OS Version required |
 | --- | --- |
 | XT-5: XT1145, XT2145 | [9.1.52](https://brightsignbiz.s3.amazonaws.com/firmware/xd5/9.1/9.1.52/brightsign-xd5-update-9.1.52.zip) |
-| _Firebird_ | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
-| _LS-5: LS445_ | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
+| _Firebird_ (in process) | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
+| _LS-5: LS445_ (in process) | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
 
 **NOTE:** This guide is written **ONLY** for the XT-5. Supporting Firebird or LS-5 is a straightforward exercise for the motivated reader.
 
-## Quick Start (Experienced Users)
+## Requirements
 
-This project includes automation scripts to streamline the build process:
+**Development Host**:
 
-- `setup` - Automates prerequisites checking and source download
-- `build` - Build script using pre-built Docker image with source included
-- `package` - Automates extension packaging with multiple output formats
-- `check-recipe-syntax.py` - Pre-build recipe validation tool
-- `validate` - Comprehensive recipe validation suite
+- x86_64 architecture (Intel/AMD only - Apple Silicon incompatible)
+- 16GB+ RAM, 50GB+ free space
+- Docker, git, cmake
 
-## Project Overview & Requirements
+**Target Device**:
 
-__IMPORTANT: THE TOOLCHAIN REFERENCED BY THIS PROJECT REQUIRES A DEVELOPMENT HOST WITH x86_64 (aka AMD64) INSTRUCTION SET ARCHITECTURE.__ This means that many common dev hosts such as Macs with Apple Silicon or ARM-based Windows and Linux computers __WILL NOT WORK.__  That also includes the OrangePi5Plus (OPi) as it is ARM-based. The OPi ___can___ be used to develop the application with good effect, but the model compilation and final build for BrightSign OS (BSOS) ___must___ be performed on an x86_64 host.
+- BrightSign Series 5 (XT-5, Firebird, LS-5)
+- Firmware 9.1.52+, unsecured, SSH enabled
 
-### Requirements
-
-1. A Series 5 player running an experimental, debug build of BrightSign OS -- signed and unsigned versions
-2. A development computer with x86_64 instruction architecture to compile the model and cross-compile the executables
-3. The cross compile toolchain ___matching the BSOS version___ of the player
-
-#### Software Requirements -- Development Host
-
-* [Docker](https://docs.docker.com/engine/install/) - it should be possible to use podman or other, but these instructions assume Docker
-* [git](https://git-scm.com/)
-* [cmake](https://cmake.org/download/)
+**Setup**:
 
 ```bash
-# consult Docker installation instructions
-
-# for others, common package managers should work
-# for Ubuntu, Debian, etc.
-sudo apt-get update && sudo apt-get install -y \
-    cmake git
-    
+sudo apt-get update && apt-get install -y docker.io git cmake
+uname -m  # Verify: x86_64
 ```
 
-## Step 0 - Setup
+__Compatible Hosts__: Intel/AMD Linux/Windows/Mac, x86_64 cloud instances  
+__Incompatible__: Apple Silicon, ARM systems, Raspberry Pi
 
-1. Install [Docker](https://docs.docker.com/engine/install/)
-2. Clone this repository -- later instructions will assume to start from this directory unless otherwise noted.
+---
 
-```bash
-#cd path/to/your/directory
-git clone git@github.com:brightsign/python-cv-dev-extension.git
-cd python-cv-dev-extension
+## Quick Start
 
-export project_root=$(pwd)
-# this environment variable is used in the following scripts to refer to the root of the project
-```
-
-**Automated approach** (recommended):
+__Time__: 60-90 min | __Prerequisites__: Docker, git, x86_64 host, BrightSign player
 
 ```bash
-# Clone and setup (5-10 minutes)
+# Build extension (30-60 min)
 git clone git@github.com:brightsign/python-cv-dev-extension.git
 cd python-cv-dev-extension
-./setup
+./setup && ./build --extract-sdk
 
-# Build SDK with automatic extraction (30-90 minutes)
-./build --extract-sdk
-
-# Install SDK and package extension (2-5 minutes)
+# Package (5 min)
 ./brightsign-x86_64-cobra-toolchain-*.sh -d ./sdk -y
 ./package
 
-# Validate recipes (optional)
-./validate
+# Deploy & validate
+# Transfer .zip via DWS, install via SSH, then:
+export PLAYER_IP=${PLAYER_IP:-192.168.1.100}  # Replace with your player IP
+export PASSWORD="password"      # Replace with your player password
 
-# Deploy: Transfer packages to player via DWS, then install
+cd user-init/tools && ./deploy-to-player.sh "${PLAYER_IP}" "${PASSWORD}"
 ```
 
-**Note**: We use `build` which uses a pre-built Docker image with BrightSign OS source already included, eliminating download time and permission issues.
+**Scripts:**
 
-**Automation Script Options:**
+- `./setup`: Downloads BrightSign source, builds clean Docker image
+- `./build --extract-sdk`: Applies patches, cross-compiles Python + CV packages, extracts SDK to `./sdk/`
+- `./brightsign-x86_64-*.sh`: Installs cross-compiler toolchain from extracted SDK
+- `./package`: Assembles extension packages from SDK and scripts
+- `./deploy-to-player.sh`: Copies CV validation scripts to player for testing
+
+__Output__: `pydev-*.zip`, `ext_pydev-*.zip` packages + SDK in `./sdk/`
+
+**Note**: Patches (recipes in `bsoe-recipes/` and `local.conf` modifications) are applied during the build process, allowing quick recipe adjustments without rebuilding the Docker container.
+
+---
+
+## Configuration
+
+### Registry Settings
+
+The Python Development Extension can be configured using BrightSign's registry system through the Diagnostic Web Server (DWS). Registry settings allow you to customize extension behavior without modifying code.
+
+#### Available Registry Keys
+
+| Registry Key | Description | Values | Default |
+|--------------|-------------|---------|---------|
+| `bsext-pydev-disable-auto-start` | Disable automatic startup of the extension | `true`, `yes`, `1` (case-insensitive) | `false` (extension starts automatically) |
+| `bsext-pydev-enable-user-scripts` | Enable user script execution (security: scripts run as root) | `true`, `yes`, `1` (case-insensitive) | `false` (user scripts blocked) |
+
+#### Setting Registry Values
+
+1. **Access DWS**: Open your browser to `http://<player-ip>:8080`
+2. **Navigate to Registry Tab**: Click the "Registry" tab
+3. **Enter command**: Type the registry command in the command box and click "Submit"
+
+**Example - Disable auto-start**:
 
 ```bash
-# View help for any script
-./setup --help
-./build --help
-./package --help
-./validate --help
-
-# Recipe validation tools
-./check-recipe-syntax.py --help            # Validate individual recipes
-./validate                                 # Validate all Python recipes
-
-# Advanced usage examples
-./build python3-numpy --clean              # Clean build individual package
-./build --distclean python3-pkg            # Deep clean with cache removal
-./build --no-patch python3-pkg             # Build without patches (vanilla)
-./package --dev-only --verify              # Create development package and validate
-./validate                                 # Run comprehensive recipe validation
+registry write extension bsext-pydev-disable-auto-start true
 ```
+
+4. **Restart Required**: Registry changes take effect after player restart
+
+#### Common Use Cases
+
+**Enable User Scripts** (Required for user-init functionality):
+
+```bash
+# Enable user script execution (required for requirements.txt and user scripts)
+registry write extension bsext-pydev-enable-user-scripts true
+
+# Restart player for changes to take effect
+# Extension will now run user scripts from /storage/sd/python-init/
+```
+
+**Disable Extension for Debugging**:
+
+```bash
+# Disable automatic startup
+registry write extension bsext-pydev-disable-auto-start true
+
+# Restart player, then manually control extension
+/var/volatile/bsext/ext_pydev/bsext_init run    # Run in foreground
+/var/volatile/bsext/ext_pydev/bsext_init start  # Run as service
+```
+
+**Temporarily Disable User Scripts** (Security):
+
+```bash
+# Disable user script execution for security
+registry write extension bsext-pydev-enable-user-scripts false
+# OR remove the key entirely
+registry delete extension bsext-pydev-enable-user-scripts
+
+# Re-enable when needed
+registry write extension bsext-pydev-enable-user-scripts true
+```
+
+**Temporarily Disable Extension**:
+
+```bash
+# Disable for maintenance or troubleshooting
+registry write extension bsext-pydev-disable-auto-start yes
+
+# Re-enable by removing the registry key
+registry delete extension bsext-pydev-disable-auto-start
+```
+
+#### Removing Registry Overrides
+
+To restore default behavior, delete the registry key:
+
+```bash
+# Remove disable flag (restores auto-start)
+registry delete extension bsext-pydev-disable-auto-start
+
+# Remove user scripts flag (disables user scripts - default security behavior)
+registry delete extension bsext-pydev-enable-user-scripts
+```
+
+**Note**: Removing a registry key restores the default behavior. This is particularly useful when troubleshooting or when you want to revert configuration changes.
+
+#### Viewing Current Registry Settings
+
+You can view all extension registry settings in the DWS Registry tab, or check specific values:
+
+```bash
+# View all extension settings
+registry read extension
+
+# Check specific setting
+registry read extension bsext-pydev-disable-auto-start
+```
+
+---
+
+## Extension Script System
+
+⚠️ **Security Notice**: User scripts are disabled by default as they execute with root privileges. You must explicitly enable them via registry:
+
+```bash
+registry write extension bsext-pydev-enable-user-scripts true
+```
+
+**Restart the player** after setting this registry key for changes to take effect.
+
+### Automatic Package Installation with requirements.txt
+
+🚀 **Key Feature**: The extension automatically installs Python packages at startup using a standard `requirements.txt` file.
+**How it works**:
+
+- Place a `requirements.txt` file in `/storage/sd/python-init/`
+- On extension startup, packages are automatically installed via pip3
+- Installation happens **before** any user scripts run
+- Results logged to `/storage/sd/python-init/requirements-install.log`
+
+**Deployment**:
+
+```sh
+export PLAYER_IP=192.168.1.100  # Replace with your player IP
+
+# Copy requirements.txt to player
+scp requirements.txt brightsign@"${PLAYER_IP}":/storage/sd/python-init/
+
+# packages will automatically install on next boot
+
+# Check installation log
+scp brightsign@"${PLAYER_IP}":/storage/sd/python-init/requirements-install.log .
+```
+
+**Benefits**:
+
+- **Standard format**: Uses pip's standard requirements.txt syntax
+- **Automatic execution**: Runs on every boot/restart
+- **Build-time alternative**: Faster than build-time inclusion for changing dependencies
+- **Development friendly**: Easy to update and test different package versions
+
+**Important Limitation**: Only PyPI packages with pre-compiled wheels for ARM64/aarch64 architecture will install successfully. The BrightSign player has no build system (no cmake, gcc, etc.), so packages requiring compilation will fail to install.
+
+**Important considerations**:
+
+- Installation time depends on package size and network speed
+- For production deployments, consider adding packages to the SDK build instead
+- Packages install to `/usr/local/lib/python3.8/site-packages` (volatile storage)
+
+### User Scripts Directory
+
+**Location**: `/storage/sd/python-init/`
+
+- Only `.sh` shell scripts are supported (due to `/storage/sd` noexec mount restrictions)
+- Scripts must have executable bit set to run (allows toggling scripts on/off)
+- Scripts execute in alphabetical order (use prefixes like `01_`, `02_` to control order)
+- Scripts run with root privileges and are executed using `bash`
+
+### Deploying Scripts
+
+**Prerequisites**: User scripts must be enabled via registry first:
+
+```bash
+# Enable user script execution (required)
+registry write extension bsext-pydev-enable-user-scripts true
+# Restart player for changes to take effect
+```
+
+**Quick Deployment** (recommended):
+
+```bash
+export PLAYER_IP=192.168.1.100  # Replace with your player IP
+export PASSWORD="password"  # Replace with your player password
+
+# From your development host
+cd user-init/tools/
+./deploy-to-player.sh "${PLAYER_IP}" "${PASSWORD}"
+
+# This deploys:
+# - requirements.txt (automatically installs Python packages at startup)
+# - 01_validate_cv.sh (CV package validation script)
+# - test_cv_packages.py (Python CV test script)
+```
+
+**Manual Deployment**:
+
+```bash
+# First, enable user scripts via DWS registry
+# registry write extension bsext-pydev-enable-user-scripts true
+
+# Copy example files to player
+scp user-init/examples/* admin@<player-ip>:/storage/sd/python-init/
+
+# Make shell scripts executable (required to run)
+ssh admin@<player-ip> "chmod +x /storage/sd/python-init/*.sh"
+
+# Restart extension to install packages and run scripts
+ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
+```
+
+### Advanced Package Installation
+
+While the automatic `requirements.txt` installation covers most use cases, you can also create custom installation scripts for more complex scenarios:
+
+**Use cases for custom scripts**:
+
+- Conditional package installation based on hardware detection
+- Installing from private repositories or custom URLs
+- Post-installation configuration or setup steps
+- Installing non-Python dependencies
+
+__Example custom installation script__ (`01_custom_packages.sh`):
+
+```bash
+#!/bin/bash
+# Custom package installation with hardware detection
+
+# Install different packages based on SOC type
+if grep -q "rk3588" /sys/firmware/devicetree/base/compatible; then
+    pip3 install --break-system-packages torch==1.13.0+cpu
+else
+    pip3 install --break-system-packages torch==1.12.0+cpu
+fi
+
+# Install from private repository
+pip3 install --break-system-packages \
+    --index-url https://private.pypi.com/simple \
+    my-private-package
+```
+
+### Creating Custom Scripts
+
+The `user-init/templates/` directory provides starting points for common scenarios:
+
+__1. Basic Script Template__ (`templates/basic_script.sh`):
+
+- Simple initialization script template
+- Includes error handling and logging examples
+- Ready to customize for your needs
+
+__2. Python Wrapper Template__ (`templates/python_wrapper.sh`):
+
+- Template for running Python scripts (since only .sh files execute)
+- Includes logging and error checking
+- Shows how to call Python scripts from shell
+
+__3. Requirements Template__ (`templates/requirements_template.txt`):
+
+- Comprehensive requirements.txt template
+- Organized by package category
+- Includes comments and version examples
+
+**Usage**:
+
+```bash
+# Start with a template
+cp user-init/templates/basic_script.sh my_custom_script.sh
+
+# Customize for your needs
+# Edit the script to add your initialization logic
+
+# Deploy and test
+scp my_custom_script.sh admin@<player-ip>:/storage/sd/python-init/
+ssh admin@<player-ip> "chmod +x /storage/sd/python-init/my_custom_script.sh"
+```
+
+**Best Practices**:
+
+- Use templates as starting points for consistency
+- Use numeric prefixes (01_, 02_, etc.) to control execution order
+- Use `chmod +x/-x` to enable/disable scripts
+- Scripts run after automatic requirements.txt installation
+
+### Service Control
+
+**Manual Control**:
+
+```bash
+# Start extension (happens automatically at boot)
+/var/volatile/bsext/ext_pydev/bsext_init start
+
+# Stop extension
+/var/volatile/bsext/ext_pydev/bsext_init stop
+
+# Restart extension (re-runs user scripts)
+/var/volatile/bsext/ext_pydev/bsext_init restart
+
+# Run extension in foreground (for debugging)
+/var/volatile/bsext/ext_pydev/bsext_init run
+
+# Check status
+/var/volatile/bsext/ext_pydev/bsext_init status
+```
+
+**Configuration Control**:
+Use registry settings to control extension behavior. See [Configuration](#configuration) for details:
+
+- Enable/disable user script execution (security)
+- Disable auto-start for debugging
+- Temporarily disable extension
+- View current settings
+
+### Debugging
+
+**Log locations**:
+
+- Extension log: `/var/log/bsext-pydev.log`
+- Requirements installation: `/storage/sd/python-init/requirements-install.log`
+- CV test results: `/storage/sd/cv_test.log`
+
+**Common issues**:
+
+- **Scripts not running**: First check if user scripts are enabled (`registry write extension bsext-pydev-enable-user-scripts true`)
+- **User scripts disabled**: Check extension status - user scripts are disabled by default for security
+- **Scripts being skipped**: Scripts without executable bit are intentionally disabled
+- **Import errors**: Verify packages installed correctly
+- **Permission denied**: Scripts run as root, ensure proper file permissions
+
+**Disable auto-start** (for troubleshooting):
+See the [Configuration](#configuration) section for registry settings to disable auto-start and other debugging options.
+
+---
+
+# Complete Guide
+
+## Architecture
+
+```ini
+Host (x86_64)                     Player (ARM64)
+├── Docker Build                  ├── BrightSign OS (RO)
+├── RKNN Compilation              ├── Extension (/var/volatile/bsext/)
+├── Cross-compilation             │   ├── Python 3.8 + libs
+└── Packaging                     │   ├── CV packages + RKNN
+                                  │   └── User init scripts
+                                  └── Storage (/storage/sd/)
+```
+
+- Build system: x86_64 → ARM64 cross-compilation
+- Extension: Persistent Python runtime + libraries
+- User scripts: `/storage/sd/python-init/*` (any executable, auto-run at startup)
+- NPU: RKNN toolkit for hardware acceleration
+
+## Detailed Build Process
+
+**Build options**:
+
+```bash
+# Individual packages (5-15 min each)
+./build python3-numpy
+./build python3-opencv
+
+# Full SDK (30-90 min)
+./build --extract-sdk
+
+# Clean builds
+./build --clean python3-pkg        # Clean individual package
+./build --distclean                # Deep clean with cache removal
+
+# Validation
+./validate                          # Check all recipes
+./check-recipe-syntax.py recipe.bb # Check individual recipe
+```
+
+**Build notes**:
+
+- Requires 10GB+ free space
+- Use `screen`/`tmux` for long builds
+- Pre-built Docker image eliminates source download delays
+   ./build --no-patch python3-pkg             # Build without patches (vanilla)
+   ./package --dev-only --verify              # Create development package and validate
+   ./validate                                 # Run comprehensive recipe validation
+
+```sh
 
 **Manual approach** (for full control):
 
@@ -119,7 +477,7 @@ docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
   --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build .
 
 # 3. Build SDK using pre-built image (~30-60 min)
-mkdir -p srv && ./sh/patch-local-conf.sh -y 
+mkdir -p srv && ./sh/patch-local-conf.sh -y
 ./build --extract-sdk
 
 # 4. Install SDK and package extension (~5 min)
@@ -288,89 +646,12 @@ echo "✅ Source extraction complete"
 # rm brightsign-${BRIGHTSIGN_OS_VERSION}-src-oe.tar.gz
 ```
 
-## Step 2 - Build the SDK (⏱️ ~30-90 minutes)
+**Packages included**:
 
-**⚠️ Important Build Notes:**
-
-- Full SDK builds typically take **30-90 minutes** on modern systems
-- Ensure **10+ GB additional free space** for build artifacts
-- **Do not interrupt** the build process - use `screen` or `tmux` for long sessions
-- Individual package builds take **5-15 minutes** each for testing
-
-To add Python and support libraries, patch the recipes.
-
-You may wish to inspect the file `bsoe-recipes/meta-bs/recipes-open/brightsign-sdk.bb` for packages of interest.
-
-Patch the recipes and configure the local.conf for RKNN support. The RKNN toolkit and runtime libraries will be automatically downloaded during the build process.
-
-```sh
-# Configure build settings for RKNN toolkit integration
-rm brightsign-oe/build/conf/local.conf 2>/dev/null || true
-./sh/patch-local-conf.sh -y
-```
-
-**Build the SDK** (⏱️ ~30-60 minutes depending on system):
-
-```sh {"terminalRows":"42"}
-cd "${project_root:-.}"
-
-# Build the complete SDK with Python and RKNN support (pre-built image)
-./build
-
-# Or build and immediately extract SDK to host
-./build --extract-sdk
-```
-
-**Build System:**
-
-- `./build` - Uses pre-built Docker image with embedded source for reliable, fast builds
-
-For advanced users who want to build specific packages first:
-
-```sh
-# Validate all recipes before building (recommended)
-./validate
-
-# Test individual package syntax
-./check-recipe-syntax.py bsoe-recipes/meta-bs/recipes-open/python3-numpy/python3-numpy_*.bb
-
-# Test individual packages (5-15 minutes each) using pre-built image
-./build python3-numpy
-./build python3-opencv  
-./build python3-rknn-toolkit2
-
-# Test vanilla build without patches
-./build --no-patch python3-numpy
-
-# Build complete SDK after testing
-./build
-```
-
-The recipe from this repository provides:
-
-- **Python 3.8 interpreter** with full standard library
-- **NumPy, OpenCV, Pillow** for scientific computing and image processing
-- **pip and setuptools** for package management
-- **pytest** for testing capabilities
-- **RKNN Toolkit2** for Rockchip NPU model conversion and inference
-- **Environment setup script** to configure paths correctly within the extension
-
-___IMPORTANT___: Building an OpenEmbedded project can be very particular in terms of packages and setup. The build uses Docker automatically for consistency across different host systems.
-
-**First-time setup** (one-time only):
-
-```sh
-cd "${project_root:-.}"
-
-# Build the container image with pre-built source (~30 minutes)
-docker build --rm --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) \
-  --build-arg BRIGHTSIGN_OS_VERSION=9.1.52 -t bsoe-build .
-
-# Create output directory
-mkdir -p srv
-```
-
-The `build` script will automatically use this Docker container for all builds.
+- Python 3.8 + standard library
+- NumPy, OpenCV, Pillow (CV/ML)
+- PyTorch, ONNX, RKNN Toolkit2 (AI/NPU)
+- pip, setuptools, pytest
 
 ### Manual Docker Container Usage (Advanced Debugging)
 
@@ -502,104 +783,52 @@ docker run -it --rm \
 docker image prune -f  # Clean up old unused images
 ```
 
-## Step 3 - Package and Install the Extension (⏱️ ~5-10 minutes)
+## Packaging & Deployment
 
-### Copy Python Components to Install Directory
+**Create packages** (automated via `./package` script):
 
-Create the extension package by copying the Python interpreter, libraries, and applications from the SDK sysroot:
-
-```sh
-cd "${project_root:-.}"
-
-# Clean and create directory structure
-echo "Creating extension package structure..."
-rm -rf install
-mkdir -p install/{usr/{bin,lib},python-apps}
-
-# Copy Python binaries and libraries
-echo "Copying Python runtime and libraries..."
-cp sdk/sysroots/aarch64-oe-linux/usr/bin/python3* install/usr/bin/ 2>/dev/null || true
-cp sdk/sysroots/aarch64-oe-linux/usr/bin/pip3* install/usr/bin/ 2>/dev/null || true
-
-# Copy the complete library directory (includes Python modules, RKNN libs, etc.)
-cp -r sdk/sysroots/aarch64-oe-linux/usr/lib install/usr/
-
-# Copy test and setup scripts
-cp test_cv_packages.py install/python-apps/
-cp sh/setup_python_env install/
-
-echo "✅ Python components copied to install directory"
+```bash
+./package  # Creates pydev-*.zip and ext_pydev-*.zip
 ```
 
-**Package Size Verification:**
+**Package options**:
 
-```sh
-# Check the installation size
-du -sh install/
-echo "Extension package ready for deployment"
+```bash
+./package --dev-only    # Development package only
+./package --ext-only    # Production extension only
+./package --clean       # Clean install dir first
+./package --verify      # Run validation after packaging
 ```
 
-### Package the Extension
+**Package types**:
 
-Add the remaining extension scripts and create deployment packages:
-
-```sh
-cd "${project_root:-.}"
-
-# Copy extension management scripts
-echo "Adding extension management scripts..."
-cp bsext_init install/ && chmod +x install/bsext_init
-cp sh/setup_python_env install/ && chmod +x install/setup_python_env
-cp sh/uninstall.sh install/ && chmod +x install/uninstall.sh
-
-echo "✅ Extension scripts added"
-```
-
-### Create Deployment Packages
-
-**Option 1: Development/Testing Package** (for `/usr/local` deployment):
-
-```sh
-cd "${project_root:-.}/install"
-
-# Create timestamped development package
-export PACKAGE_NAME="pydev-$(date +%Y%m%d-%H%M%S)"
-zip -r "../${PACKAGE_NAME}.zip" ./
-
-echo "✅ Development package created: ${PACKAGE_NAME}.zip"
-```
-
-**Option 2: Production Extension Package** (for permanent installation):
-
-```sh
-cd "${project_root:-.}/install"
-
-# Create production extension using the make-extension script
-../sh/make-extension-lvm
-
-# Package for transfer to player
-EXTENSION_NAME="ext_pydev-$(date +%Y%m%d-%H%M%S)"
-zip "../${EXTENSION_NAME}.zip" ext_pydev*
-
-# Clean up temporary files
-rm -rf ext_pydev*
-
-echo "✅ Production extension created: ${EXTENSION_NAME}.zip"
-```
+- `pydev-*.zip`: Development package (volatile, for testing)
+- `ext_pydev-*.zip`: Production extension (persistent)
 
 #### Testing Python Package Installation
 
-After deploying the extension to a BrightSign player, you can verify that all Python CV/ML packages are properly installed using the included test script:
+After deploying the extension to a BrightSign player, you can verify that all Python CV/ML packages are properly installed:
+
+**Option 1: Deploy User Init Scripts (Recommended)**
+
+```sh
+# From development host, deploy CV test scripts to player
+cd user-init/tools/
+./deploy-to-player.sh <player-ip> [password]
+
+# Restart extension to run tests
+ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
+
+# View test results
+ssh admin@<player-ip> "cat /storage/sd/cv_test.log"
+```
+
+**Option 2: Manual Testing on Player**
 
 ```sh
 # On the BrightSign player (via SSH or serial console)
-cd /var/volatile/bsext/python-apps/
-
-# Run the test script to verify all packages
-./test_cv_packages.py
-
-# Or run with explicit python3
-python3 test_cv_packages.py
+source /var/volatile/bsext/ext_pydev/setup_python_env
+python3 -c "import cv2, torch, numpy; print('Core packages working')"
 ```
 
 The test script will:
@@ -694,7 +923,7 @@ Every time a new shell is created, the environment must be set up.  To do so, `s
 # in the player shell, run:
 
 EXT_HOME="/var/volatile/bsext/ext_pydev"; [ -d "$EXT_HOME" ] || EXT_HOME="/usr/local/pydev"
-cd "${EXT_HOME}" && source ./setup_python_env
+source "${EXT_HOME}/setup_python_env"
 echo "Python development environment is set up.  Use 'python3' and 'pip3' to work with it."
 
 ```
@@ -819,6 +1048,64 @@ chmod +x /tmp/uninstall.sh
 reboot
 ```
 
+## User Initialization Scripts Deployment
+
+The Python Development Extension supports user-defined initialization scripts that run automatically at startup. This section explains how to deploy and manage these scripts separately from the main extension.
+
+### Quick Deployment of CV Test Scripts
+
+The project includes example scripts for validating the Python environment:
+
+```bash
+# Deploy CV test scripts from development host
+cd user-init/tools/
+./deploy-to-player.sh <player-ip> [password]
+
+# Example with specific IP
+./deploy-to-player.sh 192.168.1.100 mypassword
+```
+
+### Manual Deployment
+
+If you prefer manual deployment or need to customize the process:
+
+```bash
+# Copy scripts to player
+scp -r user-init/examples/* admin@<player-ip>:/storage/sd/python-init/
+
+# Set permissions on player
+ssh admin@<player-ip> "chmod +x /storage/sd/python-init/*"
+
+# Restart extension to run new scripts
+ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
+```
+
+### Verifying Deployment
+
+After deploying user init scripts:
+
+```bash
+# Check if scripts were deployed
+ssh admin@<player-ip> "ls -la /storage/sd/python-init/"
+
+# View extension logs to see if scripts ran
+ssh admin@<player-ip> "cat /var/log/bsext-pydev.log"
+
+# View CV test results (if using the example scripts)
+ssh admin@<player-ip> "cat /storage/sd/cv_test.log"
+
+# Check extension status
+ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init status"
+```
+
+### Customizing User Init Scripts
+
+1. __Create Custom Scripts__: Use templates from `user-init/templates/` to create custom initialization scripts
+2. __Control Execution Order__: Use numeric prefixes like `01_setup.sh`, `02_validate.sh`
+3. __Script Toggling__: Use `chmod +x/-x` to enable/disable scripts
+
+For detailed information about creating custom user init scripts, see `user-init/README.md` and `user-init/templates/`.
+
 ## Design Notes: Pre-Built Docker Image Build System
 
 ### Problem
@@ -855,3 +1142,32 @@ We've implemented a pre-built Docker image approach that downloads and extracts 
 - **Simplified Workflow**: Single-command builds with clear separation of concerns
 
 For migration details, see [DOCKER_VOLUMES_MIGRATION.md](DOCKER_VOLUMES_MIGRATION.md).
+
+---
+
+# Appendices
+
+## Reference
+
+### Glossary
+
+- **BSOS**: BrightSign OS (embedded Linux, OpenEmbedded/Yocto-based)
+- **Extension**: System add-on in `/var/volatile/bsext/`, persists across reboots
+- __Cross-compilation__: Build on x86_64 for ARM64 target
+- **NPU**: Neural Processing Unit (AI acceleration hardware)
+- **RKNN**: Rockchip toolkit for NPU model optimization
+- **BitBake**: Build system for embedded Linux distributions
+- **SDK**: Cross-compiler + target libraries for development
+
+### Troubleshooting
+
+__Build Issues__: Check architecture (`uname -m`), Docker permissions, disk space (50GB+)  
+__Extension Issues__: Verify player unsecured, check `/var/log/bsext-pydev.log`  
+__Python Issues__: Source environment: `. /var/volatile/bsext/ext_pydev/sh/setup_python_env`
+
+**Debug Commands**:
+
+```bash
+/var/volatile/bsext/ext_pydev/bsext_init status
+python3 -c "import cv2, torch, numpy; print('OK')"
+```

@@ -1,0 +1,162 @@
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:          bsext-pydev
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: BrightSign Python Development Extension
+# Description:       Manages the lifecycle of the Python development extension for BrightSign players
+### END INIT INFO
+
+# Extension lifecycle management script
+# Follows separation of concerns - only handles OS integration and lifecycle
+
+# Source function library if it exists
+[ -f /etc/init.d/functions ] && . /etc/init.d/functions
+
+# Service configuration
+SCRIPT_PATH=$(dirname $(realpath $0))
+DAEMON_NAME="bsext-pydev"
+LOGFILE="/var/log/${DAEMON_NAME}.log"
+
+# Extension scripts directory
+SCRIPTS_DIR="${SCRIPT_PATH}/sh"
+
+# Helper functions for DRY principle
+log_message() {
+    local message="$1"
+    echo "$message"
+    logger -t "${DAEMON_NAME}" "$message"
+}
+
+execute_script() {
+    local script_path="$1"
+    local script_name="$2"
+    local background_mode="${3:-false}"
+    local missing_is_error="${4:-false}"
+    
+    if [ -x "$script_path" ]; then
+        if [ "$background_mode" = "true" ]; then
+            "$script_path" >> "${LOGFILE}" 2>&1
+        else
+            "$script_path"
+        fi
+        return $?
+    else
+        if [ "$missing_is_error" = "true" ]; then
+            echo "Error: $script_name not found"
+            return 1
+        else
+            echo "Warning: $script_name not found"
+            logger -t "${DAEMON_NAME}" "Warning: $script_path not found"
+            return 0
+        fi
+    fi
+}
+
+report_result() {
+    local result="$1"
+    local operation="$2"
+    local foreground_mode="${3:-false}"
+    
+    if [ $result -eq 0 ]; then
+        if [ "$foreground_mode" = "true" ]; then
+            echo "${DAEMON_NAME} completed successfully"
+        else
+            log_message "${DAEMON_NAME} $operation successfully"
+        fi
+    else
+        if [ "$foreground_mode" = "true" ]; then
+            echo "${DAEMON_NAME} failed (exit code: $result)"
+        else
+            log_message "${DAEMON_NAME} failed to $operation (exit code: $result)"
+        fi
+    fi
+    return $result
+}
+
+# Service lifecycle handlers
+do_start() {
+    # Check registry for disable flag
+    local disable_flag=$(registry extension ${DAEMON_NAME}-disable-auto-start 2>/dev/null)
+    
+    if [[ "${disable_flag,,}" =~ ^(true|yes|1)$ ]]; then
+        echo "Auto-start is disabled for ${DAEMON_NAME}"
+        return 0
+    fi
+    
+    # Execute extension initialization scripts
+    echo "Initializing ${DAEMON_NAME}..."
+    local result
+    execute_script "${SCRIPTS_DIR}/init-extension" "Extension initialization script" true false
+    result=$?
+    
+    report_result $result "started" false
+    return $result
+}
+
+do_stop() {
+    # Execute extension cleanup scripts  
+    echo "Stopping ${DAEMON_NAME}..."
+    execute_script "${SCRIPTS_DIR}/cleanup-extension" "Extension cleanup script" true false
+    log_message "Extension stopped"
+    return 0
+}
+
+do_run() {
+    # Execute extension initialization in foreground mode
+    echo "Running ${DAEMON_NAME} in foreground mode..."
+    local result
+    execute_script "${SCRIPTS_DIR}/init-extension" "Extension initialization script" false true
+    result=$?
+    
+    report_result $result "run" true
+    return $result
+}
+
+do_status() {
+    echo "${DAEMON_NAME} status:"
+    
+    # Check if extension is properly installed
+    if [ -d "${SCRIPT_PATH}/usr" ]; then
+        echo "  Extension installed: YES"
+    else
+        echo "  Extension installed: NO"
+        return 1
+    fi
+    
+    # Check if status script exists and run it
+    execute_script "${SCRIPTS_DIR}/check-status" "Status check script" false false
+    return 0
+}
+
+# Main service control
+case "$1" in
+    start)
+        echo "Starting ${DAEMON_NAME}"
+        do_start
+        ;;
+    stop)
+        echo "Stopping ${DAEMON_NAME}"
+        do_stop
+        ;;
+    restart)
+        echo "Restarting ${DAEMON_NAME}"
+        do_stop
+        do_start
+        ;;
+    run)
+        echo "Running ${DAEMON_NAME} in foreground"
+        do_run
+        ;;
+    status)
+        do_status
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|run|status}"
+        exit 1
+        ;;
+esac
+
+exit $?

@@ -5,51 +5,45 @@ LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/BSD-3-Clause;md5=550794465ba0ec5312d6919e203a55f9"
 SECTION = "devel/python"
 
-PYPI_PACKAGE = "scipy"
+# Version matches what pip installs (1.10.1)
+PV = "1.10.1"
 
-SRC_URI[md5sum] = "de3db61d840456634ba37f2b5816e049"
+# Use pre-built wheel for ARM64 - this is what pip uses
+SRC_URI = "https://files.pythonhosted.org/packages/5b/bd/c9e711b2a5cc1daa7dc7db3bb12ba25a7ae38e112c76f70eb9ab0c142dac/scipy-1.10.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
 SRC_URI[sha256sum] = "2cf9dfb80a7b4589ba4c40ce7588986d6d5cebc5457cad2c2880f6bc2d42f3a5"
 
-inherit pypi setuptools3
+# Inherit python3native for cross-compilation support
+inherit python3native
 
-DEPENDS += " \
-    python3-numpy-native \
-    python3-numpy \
-    python3-pybind11-native \
-    python3-cython-native \
-    python3-pip-native \
-    python3-setuptools-native \
-    python3-wheel-native \
-"
+# Since we're using a pre-built wheel, we need to handle it specially
+S = "${WORKDIR}"
 
-# Configuration for SciPy build without external BLAS/LAPACK
-EXTRA_OESETUP = " \
-    --disable-atlas \
-    --disable-lapack \
-"
-
-# Ensure Cython is available in PATH and create cython symlink
-do_compile:prepend() {
-    export PATH="${STAGING_BINDIR_NATIVE}:${PATH}"
-    # Create cython symlink if it doesn't exist
-    if [ ! -f "${STAGING_BINDIR_NATIVE}/cython" ] && [ -f "${STAGING_BINDIR_NATIVE}/cython3" ]; then
-        ln -sf cython3 "${STAGING_BINDIR_NATIVE}/cython"
-    fi
-    
-    # Configure for minimal BLAS/LAPACK requirements  
-    export NPY_NUM_BUILD_JOBS="${PARALLEL_MAKE}"
-    export SCIPY_USE_PROPACK=0
-    export NPY_BLAS_ORDER=""
-    export NPY_LAPACK_ORDER=""
-    
-    # Use NumPy's internal linear algebra routines
-    export BLAS=None
-    export LAPACK=None
-    export ATLAS=None
+# Don't extract the wheel, we'll install it directly
+do_unpack() {
+    # Copy the wheel to the work directory
+    cp ${WORKDIR}/scipy-1.10.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl ${S}/
 }
 
+# Extract and install the wheel manually (cross-compilation safe)
+do_install() {
+    # Extract the wheel
+    cd ${S}
+    ${PYTHON} -m zipfile -e scipy-1.10.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl extracted/
+    
+    # Install Python modules
+    install -d ${D}${PYTHON_SITEPACKAGES_DIR}
+    cp -r extracted/scipy ${D}${PYTHON_SITEPACKAGES_DIR}/
+    
+    # Install metadata if it exists
+    if [ -d extracted/scipy-1.10.1.dist-info ]; then
+        install -d ${D}${PYTHON_SITEPACKAGES_DIR}/scipy-1.10.1.dist-info
+        cp -r extracted/scipy-1.10.1.dist-info/* ${D}${PYTHON_SITEPACKAGES_DIR}/scipy-1.10.1.dist-info/
+    fi
+}
+
+DEPENDS = "python3-pip-native python3-setuptools-native"
+
 RDEPENDS:${PN} += " \
-    python3-numpy \
     python3-core \
     python3-math \
     python3-ctypes \
@@ -59,10 +53,19 @@ RDEPENDS:${PN} += " \
     python3-compression \
 "
 
+# Dependencies to add later:
+# RDEPENDS: python3-numpy \
+#
+
 # Standard FILES definition for Python packages
 FILES:${PN} += "${PYTHON_SITEPACKAGES_DIR}/*"
 
-# SciPy uses compiled C/Fortran extensions
-INSANE_SKIP:${PN} += "buildpaths dev-so already-stripped file-rdeps arch installed-vs-shipped"
+# This is a pre-built binary wheel, skip QA checks
+INSANE_SKIP:${PN} += "already-stripped file-rdeps arch installed-vs-shipped ldflags"
 
-BBCLASSEXTEND = "native nativesdk"
+# Inhibit stripping for binary components
+INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
+INHIBIT_PACKAGE_STRIP = "1"
+
+# This is architecture-specific
+PACKAGE_ARCH = "${MACHINE_ARCH}"

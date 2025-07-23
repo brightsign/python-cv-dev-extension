@@ -5,17 +5,11 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 inherit packagegroup
 
-PACKAGES = " \
-    ${PN} \
-    ${PN}-dev \
-    ${PN}-runtime \
-"
+PACKAGES = "${PN} ${PN}-runtime ${PN}-dev"
 
 # Runtime components for target devices (ARM64)
 RDEPENDS:${PN}-runtime = " \
-    python3-rknn-toolkit2 \
     python3-numpy \
-    python3-scipy \
     python3-opencv \
     python3-pillow \
     python3-core \
@@ -34,15 +28,17 @@ RDEPENDS:${PN}-runtime = " \
     python3-fsspec \
     python3-networkx \
     python3-mpmath \
-    python3-fast-histogram \
 "
+# Runtime packages to add later:
+# python3-rknn-toolkit2 \
+# python3-scipy \
+# python3-fast-histogram \
+#
 
 # Development components (extended runtime for development)
 RDEPENDS:${PN}-dev = " \
     ${PN}-runtime \
     python3-torch \
-    python3-onnx \
-    python3-onnxruntime \
     python3-onnxoptimizer \
     python3-sympy \
     python3-json \
@@ -50,6 +46,11 @@ RDEPENDS:${PN}-dev = " \
     python3-setuptools \
     python3-pip \
 "
+
+# Development packages to add later:
+# python3-onnx \
+# python3-onnxruntime \
+#
 
 # Default package includes runtime components
 RDEPENDS:${PN} = " \

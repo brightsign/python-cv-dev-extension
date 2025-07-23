@@ -1,72 +1,290 @@
-# this file is used to set up the Python environment for the BrightSign extension
-# it should be sourced in the shell before running any Python scripts
+#!/bin/sh
+# BrightSign Python Development Extension Environment Setup
+# Usage: source setup_python_env [--verbose]
+# Can be run from any directory - automatically finds extension root
+# Compatible with POSIX sh (busybox/dash) on BrightSign players
 
-# Set the extension home directory
-# Note: The path can be changed based on the actual installation location of the extension.
+# Configuration
+VERBOSE=false
+if [ "$1" = "--verbose" ] || [ "$SETUP_PYTHON_ENV_VERBOSE" = "true" ]; then
+    VERBOSE=true
+fi
 
-EXTENSION_HOME="$(pwd)"
+# Logging function
+log_verbose() {
+    if [ "$VERBOSE" = "true" ]; then
+        echo "DEBUG: $*" >&2
+    fi
+}
 
-# pip packages may be installed here.. but they will be removed on reboot
-export PIP_PACKAGE_DIR="/usr/local/lib/python3.8/site-packages"
-mkdir -p "${PIP_PACKAGE_DIR}"
-
-# Set up Python environment for BrightSign extension
-export PYTHONPATH="${EXTENSION_HOME}/usr/lib/python3.8:${EXTENSION_HOME}/usr/lib/python3.8/site-packages:${PIP_PACKAGE_DIR}:$PYTHONPATH"
-export PATH="${EXTENSION_HOME}/usr/bin:$PATH"
-export LD_LIBRARY_PATH="${EXTENSION_HOME}/usr/lib:$LD_LIBRARY_PATH"
-
-# Create runtime symlinks and library paths for RKNN library access
-# Since /usr is readonly, create symlinks in writable areas that RKNN can find
-if [ -f "${EXTENSION_HOME}/usr/lib/librknnrt.so" ]; then
-    # Create lib64 directory in extension for RKNN to find libraries
-    mkdir -p "${EXTENSION_HOME}/lib64"
-    ln -sf "${EXTENSION_HOME}/usr/lib/librknnrt.so" "${EXTENSION_HOME}/lib64/librknnrt.so" 2>/dev/null || true
+# Find extension home directory using systematic discovery
+find_extension_home() {
+    local extension_home=""
     
-    # Check for versioned library files and create symlinks
-    for lib_file in "${EXTENSION_HOME}/usr/lib/librknnrt.so"*; do
+    # Method 1: Use explicit environment variable if set
+    if [ -n "$BRIGHTSIGN_PYTHON_EXTENSION_HOME" ]; then
+        log_verbose "Checking explicit BRIGHTSIGN_PYTHON_EXTENSION_HOME: $BRIGHTSIGN_PYTHON_EXTENSION_HOME"
+        if validate_extension_home "$BRIGHTSIGN_PYTHON_EXTENSION_HOME"; then
+            extension_home="$BRIGHTSIGN_PYTHON_EXTENSION_HOME"
+            log_verbose "Using explicit extension home: $extension_home"
+            echo "$extension_home"
+            return 0
+        else
+            echo "Warning: BRIGHTSIGN_PYTHON_EXTENSION_HOME is set but invalid: $BRIGHTSIGN_PYTHON_EXTENSION_HOME" >&2
+        fi
+    fi
+    
+    # Method 2: Try to use script's own location if available
+    if [ -n "$0" ] && [ "$0" != "sh" ] && [ "$0" != "-sh" ] && [ "$0" != "/bin/sh" ]; then
+        log_verbose "Trying to use script location from \$0: $0"
+        local script_dir
+        script_dir="$( cd "$( dirname "$0" )" 2>/dev/null && pwd )"
+        if [ -n "$script_dir" ] && [ -f "$script_dir/setup_python_env" ]; then
+            log_verbose "Found script at: $script_dir"
+            local potential_home
+            potential_home=$(dirname "$script_dir")
+            if validate_extension_home "$potential_home"; then
+                extension_home="$potential_home"
+                log_verbose "Using extension home from script location: $extension_home"
+                echo "$extension_home"
+                return 0
+            fi
+        fi
+    fi
+    
+    # Method 3: Search systematic locations in priority order
+    log_verbose "Searching systematic locations..."
+    
+    # Current directory patterns
+    local current_dir
+    current_dir=$(pwd)
+    log_verbose "Current directory: $current_dir"
+    
+    # Check if we're in the sh/ directory of an extension
+    if [ -f "$current_dir/setup_python_env" ]; then
+        log_verbose "Found setup_python_env in current directory - we're in sh/"
+        local potential_home
+        potential_home=$(dirname "$current_dir")
+        if validate_extension_home "$potential_home"; then
+            extension_home="$potential_home"
+            log_verbose "Using extension home from current sh/ directory: $extension_home"
+            echo "$extension_home"
+            return 0
+        fi
+    fi
+    
+    # Check if we're in the extension root directory
+    if [ -f "$current_dir/sh/setup_python_env" ]; then
+        log_verbose "Found sh/setup_python_env in current directory - we're in extension root"
+        if validate_extension_home "$current_dir"; then
+            extension_home="$current_dir"
+            log_verbose "Using current directory as extension home: $extension_home"
+            echo "$extension_home"
+            return 0
+        fi
+    fi
+    
+    # Search standard deployment locations
+    local search_locations="
+        /var/volatile/bsext/ext_pydev
+        /usr/local
+        /usr/local/pydev
+        /opt/brightsign/ext_pydev
+        /opt/pydev
+    "
+    
+    for location in $search_locations; do
+        log_verbose "Checking standard location: $location"
+        if [ -f "$location/sh/setup_python_env" ] && validate_extension_home "$location"; then
+            extension_home="$location"
+            log_verbose "Found extension at standard location: $extension_home"
+            echo "$extension_home"
+            return 0
+        fi
+    done
+    
+    # Nothing found
+    log_verbose "No valid extension home found"
+    return 1
+}
+
+# Validate that a directory contains a valid BrightSign Python extension
+validate_extension_home() {
+    local home="$1"
+    
+    if [ -z "$home" ] || [ ! -d "$home" ]; then
+        log_verbose "Invalid home directory: $home"
+        return 1
+    fi
+    
+    # Check for required extension structure
+    if [ ! -d "$home/usr/bin" ]; then
+        log_verbose "Missing usr/bin directory in: $home"
+        return 1
+    fi
+    
+    if [ ! -f "$home/usr/bin/python3.8" ]; then
+        log_verbose "Missing python3.8 binary in: $home/usr/bin/"
+        return 1
+    fi
+    
+    if [ ! -d "$home/usr/lib" ]; then
+        log_verbose "Missing usr/lib directory in: $home"
+        return 1
+    fi
+    
+    log_verbose "Extension structure validated: $home"
+    return 0
+}
+
+# Setup Python environment paths and variables
+setup_python_environment() {
+    local extension_home="$1"
+    
+    log_verbose "Setting up Python environment for: $extension_home"
+    
+    # Create pip package directory (ephemeral but executable)
+    export PIP_PACKAGE_DIR="/usr/local/lib/python3.8/site-packages"
+    mkdir -p "$PIP_PACKAGE_DIR" 2>/dev/null || true
+    
+    # Set up Python paths
+    export PYTHONPATH="$extension_home/usr/lib/python3.8:$extension_home/usr/lib/python3.8/site-packages:$PIP_PACKAGE_DIR:$PYTHONPATH"
+    export PATH="$extension_home/usr/bin:$PATH"
+    export LD_LIBRARY_PATH="$extension_home/usr/lib:$LD_LIBRARY_PATH"
+    
+    # Set extension home for other scripts
+    export BRIGHTSIGN_PYTHON_EXTENSION_HOME="$extension_home"
+    
+    # Setup RKNN library paths if available
+    setup_rknn_libraries "$extension_home"
+    
+    # Set up additional environment
+    export TMPDIR="/tmp"
+    export HOME="/tmp"
+    
+    log_verbose "Python environment setup complete"
+}
+
+# Setup RKNN runtime library paths and symlinks
+setup_rknn_libraries() {
+    local extension_home="$1"
+    local rknn_lib="$extension_home/usr/lib/librknnrt.so"
+    
+    if [ ! -f "$rknn_lib" ]; then
+        echo "Warning: RKNN Runtime library not found at: $rknn_lib"
+        echo "Python RKNN toolkit may not work correctly."
+        return 0
+    fi
+    
+    log_verbose "Setting up RKNN runtime libraries"
+    
+    # Create lib64 directory in extension for RKNN to find libraries
+    mkdir -p "$extension_home/lib64"
+    ln -sf "$extension_home/usr/lib/librknnrt.so" "$extension_home/lib64/librknnrt.so" 2>/dev/null || true
+    
+    # Create symlinks for versioned library files
+    for lib_file in "$extension_home/usr/lib/librknnrt.so"*; do
         if [ -f "$lib_file" ]; then
+            local lib_name
             lib_name=$(basename "$lib_file")
-            ln -sf "../usr/lib/$lib_name" "${EXTENSION_HOME}/lib64/$lib_name" 2>/dev/null || true
+            ln -sf "../usr/lib/$lib_name" "$extension_home/lib64/$lib_name" 2>/dev/null || true
         fi
     done
     
     # Update LD_LIBRARY_PATH to include the lib64 directory
-    export LD_LIBRARY_PATH="${EXTENSION_HOME}/lib64:${LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="$extension_home/lib64:$LD_LIBRARY_PATH"
     
-    # Set environment variables that RKNN might respect
-    export RKNN_LIB_PATH="${EXTENSION_HOME}/usr/lib"
-    export EXTENSION_HOME="${EXTENSION_HOME}"
+    # Set environment variables that RKNN might use
+    export RKNN_LIB_PATH="$extension_home/usr/lib"
     
-    # Create /usr/lib64 symlink if writable area exists
+    # Create system lib64 symlinks if writable area exists
     if [ -w "/usr/local" ]; then
         mkdir -p "/usr/local/lib64" 2>/dev/null || true
         if [ -d "/usr/local/lib64" ]; then
-            ln -sf "${EXTENSION_HOME}/usr/lib/librknnrt.so" "/usr/local/lib64/librknnrt.so" 2>/dev/null || true
-            for lib_file in "${EXTENSION_HOME}/usr/lib/librknnrt.so"*; do
+            ln -sf "$rknn_lib" "/usr/local/lib64/librknnrt.so" 2>/dev/null || true
+            for lib_file in "$extension_home/usr/lib/librknnrt.so"*; do
                 if [ -f "$lib_file" ]; then
+                    local lib_name
                     lib_name=$(basename "$lib_file")
                     ln -sf "$lib_file" "/usr/local/lib64/$lib_name" 2>/dev/null || true
                 fi
             done
-            export LD_LIBRARY_PATH="/usr/local/lib64:${LD_LIBRARY_PATH}"
+            export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
         fi
     fi
     
     echo "RKNN Runtime library setup complete."
-    echo "Library paths: ${LD_LIBRARY_PATH}"
-else
-    echo "Warning: RKNN Runtime library (librknnrt.so) not found in ${EXTENSION_HOME}/usr/lib/"
-    echo "Python RKNN toolkit may not work correctly."
-fi
+    log_verbose "RKNN library paths: $LD_LIBRARY_PATH"
+}
 
-# Additional environment setup for Python packages
-export TMPDIR="/tmp"
-export HOME="/tmp"
+# Print helpful information after setup
+print_setup_info() {
+    local extension_home="$1"
+    
+    echo "Python development environment is set up."
+    echo "Extension home: $extension_home"
+    echo "Python path: $PYTHONPATH"
+    echo "Use 'python3' and 'pip3' to work with Python."
+    echo ""
+    echo "Testing options:"
+    echo "  1. Run CV package tests manually:"
+    echo "     python3 -c \"import numpy, cv2, torch; print('Basic packages available')\""
+    echo ""
+    echo "  2. For automated testing, use the user-init system:"
+    echo "     - Deploy examples from user-init/examples/ to /storage/sd/python-init/"
+    echo "     - Enable user scripts via registry: bsext-pydev-enable-user-scripts=true"
+    echo "     - Restart extension to run automated CV validation"
+}
 
-echo "Python development environment is set up."
-echo "Extension home: ${EXTENSION_HOME}"
-echo "Python path: ${PYTHONPATH}"
-echo "Use 'python3' and 'pip3' to work with Python."
-echo ""
-echo "To test the RKNN setup, run:"
-echo "  python3 python-apps/test_cv_packages.py"
+# Print error message with helpful debugging information
+print_error_info() {
+    echo "Error: Cannot locate BrightSign Python extension" >&2
+    echo "" >&2
+    echo "This script looks for the extension in the following locations:" >&2
+    echo "  1. BRIGHTSIGN_PYTHON_EXTENSION_HOME environment variable" >&2
+    echo "  2. Relative to this script's location" >&2
+    echo "  3. Current working directory (if extension structure present)" >&2
+    echo "  4. Standard deployment locations:" >&2
+    echo "     - /var/volatile/bsext/ext_pydev" >&2
+    echo "     - /usr/local" >&2
+    echo "     - /usr/local/pydev" >&2
+    echo "     - /opt/brightsign/ext_pydev" >&2
+    echo "     - /opt/pydev" >&2
+    echo "" >&2
+    echo "To fix this issue:" >&2
+    echo "  1. Ensure the extension is properly installed" >&2
+    echo "  2. Set BRIGHTSIGN_PYTHON_EXTENSION_HOME to the extension root directory" >&2
+    echo "  3. Run with --verbose for detailed debugging information" >&2
+    echo "" >&2
+    echo "Expected extension structure:" >&2
+    echo "  EXTENSION_HOME/" >&2
+    echo "  ├── usr/bin/python3.8" >&2
+    echo "  ├── usr/lib/" >&2
+    echo "  └── sh/setup_python_env" >&2
+}
+
+# Main execution
+main() {
+    log_verbose "Starting BrightSign Python extension environment setup"
+    
+    # Find the extension home directory
+    local extension_home
+    extension_home=$(find_extension_home)
+    
+    if [ -z "$extension_home" ]; then
+        print_error_info
+        return 1 2>/dev/null || exit 1
+    fi
+    
+    # Setup the Python environment
+    setup_python_environment "$extension_home"
+    
+    # Print success information
+    print_setup_info "$extension_home"
+    
+    log_verbose "Setup completed successfully"
+    return 0
+}
+
+# Execute main function
+main "$@"
