@@ -12,6 +12,8 @@ brightsign-*-src-*.tar.gz
 srv/
 tk/
 
+*_requirements.txt
+
 # Generated extension packages (can be very large)
 *.zip
 pydev-*.zip

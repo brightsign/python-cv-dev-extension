@@ -23,6 +23,13 @@ TOOLCHAIN_TARGET_TASK += "\
     python3-numpy \
     python3-pillow \
     python3-pip \
+    python3-setuptools \
+    python3-markupsafe \
+    python3-jinja2 \
+    python3-psutil \
+    python3-tqdm \
+    python3-typing-extensions \
+    python3-networkx \
 "
 #     packagegroup-rknn \
 #
