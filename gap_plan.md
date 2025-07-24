@@ -97,15 +97,15 @@ Analysis of packages missing from `wmt_safe_requirements.txt` compared to `wmt_r
 **Strategy**: Version range testing, alternative frameworks
 
 ### 🟡 MEDIUM PRIORITY - File I/O and Utilities
-- ❌ **imageio==2.37.0** - Image format I/O library
-- ❌ **tifffile==2025.6.11** - TIFF image format support
-- ❌ **tzdata==2025.2** - Timezone data
-- ❌ **ruamel.yaml==0.18.14** - Advanced YAML processing
-- ❌ **ruamel.yaml.clib==0.2.12** - ruamel.yaml C extension
+- ✅ **imageio==2.6.0** - Image format I/O library (existing recipe added to SDK)
+- ❌ **tifffile==2025.6.11** - TIFF image format support (no existing recipe, requires Python >=3.11)
+- ✅ **tzdata==2024a** - Timezone data (system package already available)
+- ✅ **ruamel.yaml==0.16.5** - Advanced YAML processing (existing recipe added to SDK)
+- ❌ **ruamel.yaml.clib==0.2.12** - ruamel.yaml C extension (no existing recipe)
 
-**Status**: May have ARM64 wheels but version compatibility issues
-**Impact**: Medium - affects specific file format support
-**Strategy**: Version range testing, alternative packages
+**Status**: 3/5 packages available via existing recipes with older versions
+**Impact**: Medium - TIFF support missing, but basic file I/O covered
+**Strategy**: Use existing recipes; evaluate if older versions sufficient
 
 ## Revised Implementation Strategy
 
@@ -162,6 +162,8 @@ For critical missing packages, investigate building custom ARM64 wheels
 - ✅ **python3-tqdm** - Added to SDK
 - ✅ **python3-typing-extensions** - Added to SDK
 - ✅ **python3-networkx** - Added to SDK
+- ✅ **python3-imageio** (v2.6.0) - Added to SDK
+- ✅ **python3-ruamel-yaml** (v0.16.5) - Added to SDK
 
 ### ✅ Runtime Wheel Installation - LARGELY SUCCESSFUL
 - ✅ **matplotlib ecosystem** - SUCCESSFUL (3.7.5 vs requested 3.10.3)
@@ -239,9 +241,32 @@ For critical missing packages, investigate building custom ARM64 wheels
 
 ---
 
-**Last Updated**: 2025-07-23  
+**Last Updated**: 2025-07-24  
 **Status**: Major success! 85% of packages available. Focus on deep learning alternatives.  
 **Next Action**: Test PyTorch version ranges and research deep learning alternatives
 
+## Fresh Comparison Analysis (2025-07-24)
+
+Compared `post-init_requirements.txt` (actual runtime) with `wmt_requirements.txt` (desired):
+
+### Still Missing Critical Packages:
+1. **onnxruntime==1.20.0** - Essential for ONNX model inference
+2. **rknn-toolkit-lite2** - Critical for RKNN hardware acceleration
+3. **torch==2.5.1** - PyTorch deep learning framework
+4. **torchvision==0.20.1** - PyTorch vision utilities
+5. **scikit-image==0.24.0** - Advanced image processing
+6. **ultralytics==8.3.4** - YOLO object detection
+7. **ultralytics-thop==2.0.14** - FLOPS computation
+8. **ruamel.yaml.clib==0.2.12** - C extension for YAML
+9. **tifffile==2025.6.11** - TIFF file support
+10. **tzdata==2025.2** - Python timezone database
+
+### Major Version Gaps (installed vs desired):
+- **numpy**: 1.24.4 vs 2.3.0
+- **pandas**: 1.3.5 vs 2.3.0
+- **Pillow**: 6.2.1 vs 11.2.1
+- **protobuf**: 3.20.3 vs 6.31.1
+- **scipy**: 1.10.1 vs 1.15.3
+
 ## Key Takeaway
-The gap analysis revealed that our runtime wheel strategy is **much more successful than expected**. The critical matplotlib ecosystem works perfectly, and most utility packages install without issues. The remaining challenges are focused on cutting-edge deep learning frameworks, which may require alternative approaches or older versions.
+The gap analysis revealed that our runtime wheel strategy is **much more successful than expected**. The critical matplotlib ecosystem works perfectly, and most utility packages install without issues. The remaining challenges are focused on cutting-edge deep learning frameworks and newer package versions that may require Python 3.8+ compatible alternatives.

@@ -71,7 +71,8 @@
       "Bash(./check-recipe-syntax.py:*)",
       "Bash(diff:*)",
       "Bash(sh:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git branch:*)"
     ],
     "deny": []
   }

@@ -30,6 +30,8 @@ TOOLCHAIN_TARGET_TASK += "\
     python3-tqdm \
     python3-typing-extensions \
     python3-networkx \
+    python3-imageio \
+    python3-ruamel-yaml \
 "
 #     packagegroup-rknn \
 #
