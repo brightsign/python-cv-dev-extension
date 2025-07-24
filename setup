@@ -153,6 +153,38 @@ setup_docker() {
     success "Docker environment ready"
 }
 
+# Clone rknn-toolkit2 repository
+clone_rknn_toolkit() {
+    log "Cloning rknn-toolkit2 repository..."
+    
+    # Create toolkit directory if it doesn't exist
+    mkdir -p toolkit
+    
+    # Clone or update rknn-toolkit2
+    if [[ -d "toolkit/rknn-toolkit2" ]]; then
+        log "rknn-toolkit2 already exists, updating..."
+        cd toolkit/rknn-toolkit2
+        git fetch || warn "Failed to fetch updates"
+        git checkout v2.3.2 || warn "Failed to checkout v2.3.2 tag"
+        cd ../..
+    else
+        log "Cloning rknn-toolkit2..."
+        cd toolkit
+        git clone https://github.com/airockchip/rknn-toolkit2.git || error "Failed to clone rknn-toolkit2"
+        cd rknn-toolkit2
+        git checkout v2.3.2 || error "Failed to checkout v2.3.2 tag"
+        cd ../..
+    fi
+    
+    # Verify the wheel file exists (v2.3.2)
+    WHEEL_PATH="toolkit/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+    if [[ -f "$WHEEL_PATH" ]]; then
+        success "rknn-toolkit-lite2 wheel file found"
+    else
+        error "Expected wheel file not found at: $WHEEL_PATH"
+    fi
+}
+
 # Main setup function
 main() {
     echo "BrightSign Python CV Extension - Setup Script"
@@ -160,7 +192,8 @@ main() {
     echo "This script will:"
     echo "1. Check prerequisites"
     echo "2. Setup Docker build environment"
-    echo "3. Download BrightSign OS source (~2-3 GB) inside Docker container"
+    echo "3. Clone rknn-toolkit2 repository"
+    echo "4. Download BrightSign OS source (~2-3 GB) inside Docker container"
     echo ""
     echo "Building for BrightSign OS version: ${BRIGHTSIGN_OS_VERSION}"
     echo ""
@@ -181,6 +214,7 @@ main() {
     
     check_prerequisites
     setup_docker
+    clone_rknn_toolkit
     
     end_time=$(date +%s)
     duration=$((end_time - start_time))

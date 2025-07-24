@@ -181,6 +181,23 @@ add_extension_scripts() {
     success "Extension scripts added"
 }
 
+# Copy rknn-toolkit-lite2 wheel file
+copy_rknn_wheel() {
+    log "Copying rknn-toolkit-lite2 wheel file..."
+    
+    local wheel_path="toolkit/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+    
+    if [[ -f "$wheel_path" ]]; then
+        # Create wheels directory
+        mkdir -p install/usr/lib/python3.8/wheels
+        cp "$wheel_path" install/usr/lib/python3.8/wheels/
+        success "rknn-toolkit-lite2 wheel copied"
+    else
+        warn "rknn-toolkit-lite2 wheel not found at: $wheel_path"
+        warn "Run ./setup first to clone rknn-toolkit2"
+    fi
+}
+
 # Verify installation structure
 verify_structure() {
     log "Verifying installation structure..."
@@ -300,6 +317,7 @@ main() {
     create_install_structure
     copy_sdk_components
     add_extension_scripts
+    copy_rknn_wheel
     echo ""
 
     verify_structure

@@ -18,6 +18,20 @@ else
     exit 1
 fi
 
+# Install rknn-toolkit-lite2 wheel if present and not already installed
+RKNN_WHEEL="${EXTENSION_HOME}/usr/lib/python3.8/wheels/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+if [ -f "$RKNN_WHEEL" ]; then
+    echo "Checking rknn-toolkit-lite2 installation..."
+    if ! python3 -c "import rknnlite" 2>/dev/null; then
+        echo "Installing rknn-toolkit-lite2..."
+        pip3 install --no-deps "$RKNN_WHEEL" || {
+            echo "Warning: Failed to install rknn-toolkit-lite2"
+        }
+    else
+        echo "rknn-toolkit-lite2 already installed"
+    fi
+fi
+
 # Run user initialization if configured
 if [ -x "${SCRIPT_DIR}/run-user-init" ]; then
     "${SCRIPT_DIR}/run-user-init"

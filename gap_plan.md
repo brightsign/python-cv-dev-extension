@@ -1,84 +1,30 @@
-# Gap Analysis: Missing Packages from wmt_requirements.txt
-## UPDATED WITH ACTUAL RUNTIME INSTALLATION RESULTS
+# Gap Analysis: wmt_requirements.txt vs post-init_requirements.txt
+## UPDATED 2025-07-24
 
 ## Overview
 
-Analysis of packages missing from `wmt_safe_requirements.txt` compared to `wmt_requirements.txt`, **validated against actual runtime installation results** from `post-install_requirements.txt` (pip freeze output from the player).
+Direct comparison of desired packages in `wmt_requirements.txt` with actual runtime environment in `post-init_requirements.txt` (pip freeze output after extension initialization).
 
-**Key Constraint**: Runtime installation via pip requires ARM64 wheel availability due to `--only-binary=:all:` flag (no compilation on target device).
+**Key Achievement**: rknn-toolkit-lite2 is now successfully installed, enabling BrightSign hardware-accelerated inference!
 
-**🎉 MAJOR DISCOVERY**: The runtime wheel installation strategy worked much better than expected! Many packages we thought were "missing" are actually successfully installing via pip.
+**Success Rate**: 87% of desired packages installed (54/62 packages)
 
-## Runtime Installation Success Analysis
+## Current Status Summary
 
-### ✅ SUCCESSFUL Runtime Installations (52 packages total)
-**These packages install successfully via pip and are available in the runtime environment:**
+### 🎯 What's Working
+- **87% success rate** with 54 out of 62 desired packages installed
+- **rknn-toolkit-lite2** installed for hardware acceleration
+- **Core CV/ML stack** functional with OpenCV, matplotlib, numpy, scipy
+- **All basic utilities** installed (requests, PyYAML, redis, etc.)
 
-#### matplotlib Ecosystem (MAJOR SUCCESS!)
-- ✅ **matplotlib==3.7.5** - Core visualization library (requested 3.10.3, got compatible 3.7.5)
-- ✅ **contourpy==1.1.1** - Contour plots (requested 1.3.2, got compatible 1.1.1)  
-- ✅ **fonttools==4.57.0** - Font handling (requested 4.58.2, got compatible 4.57.0)
-- ✅ **kiwisolver==1.4.7** - Constraint solver (requested 1.4.8, got compatible 1.4.7)
+### ❌ What's Missing (8 packages)
+Deep learning frameworks and advanced image processing tools remain unavailable due to ARM64/Python 3.8 compatibility issues.
 
-**Impact**: Critical CV visualization capability ACHIEVED via runtime installation!
+See detailed comparison below for the complete package-by-package analysis.
 
-#### Core Python Utilities
-- ✅ **APScheduler==3.10.1**
-- ✅ **async-timeout==5.0.1**
-- ✅ **cachetools==5.5.0**
-- ✅ **certifi==2025.4.26**
-- ✅ **charset-normalizer==3.4.2**
-- ✅ **coloredlogs==15.0.1**
-- ✅ **cycler==0.12.1**
-- ✅ **filelock==3.16.1**
-- ✅ **flatbuffers==25.2.10**
-- ✅ **fsspec==2025.3.0**
-- ✅ **gmc==1.0.0**
-- ✅ **humanfriendly==10.0**
-- ✅ **idna==3.10**
-- ✅ **isodate==0.7.2**
-- ✅ **Jinja2==3.1.6**
-- ✅ **lazy-loader==0.4**
-- ✅ **MarkupSafe==2.1.5**
-- ✅ **mpmath==1.3.0**
-- ✅ **networkx==3.1**
-- ✅ **packaging==25.0**
-- ✅ **protobuf==3.20.3**
-- ✅ **psutil==7.0.0**
-- ✅ **py-cpuinfo==9.0.0**
-- ✅ **pyparsing==3.1.4**
-- ✅ **pyserial==3.4**
-- ✅ **python-dateutil==2.8.2**
-- ✅ **pytz==2021.3**
-- ✅ **PyYAML==6.0.2**
-- ✅ **redis==5.2.1**
-- ✅ **requests==2.32.4**
-- ✅ **six==1.17.0**
-- ✅ **sympy==1.13.1**
-- ✅ **termcolor==2.4.0**
-- ✅ **tqdm==4.67.1**
-- ✅ **typing-extensions==4.13.2**
-- ✅ **tzlocal==2.1**
-- ✅ **urllib3==2.2.3**
-- ✅ **watchdog==4.0.2**
-- ✅ **yacs==0.1.8**
+## Package Categories
 
-#### CV/ML Core Stack
-- ✅ **numpy==1.24.4**
-- ✅ **opencv-python==4.11.0.86**
-- ✅ **pandas==1.3.5**
-- ✅ **Pillow==6.2.1**
-- ✅ **scipy==1.10.1**
-- ✅ **seaborn==0.11.2**
-
-#### Bonus Packages (Installed as dependencies)
-- ✅ **importlib-resources==6.4.5** - Resource management
-- ✅ **nose==1.3.7** - Testing framework
-- ✅ **zipp==3.20.2** - Zip utilities
-
-## Actually Missing Packages Analysis
-
-### 🔴 HIGH PRIORITY - Deep Learning Frameworks (ARM64 wheel issues)
+### 🔴 HIGH PRIORITY - Deep Learning Frameworks
 - ❌ **torch==2.5.1** - PyTorch deep learning framework
 - ❌ **torchvision==0.20.1** - PyTorch computer vision extensions
 
@@ -164,6 +110,7 @@ For critical missing packages, investigate building custom ARM64 wheels
 - ✅ **python3-networkx** - Added to SDK
 - ✅ **python3-imageio** (v2.6.0) - Added to SDK
 - ✅ **python3-ruamel-yaml** (v0.16.5) - Added to SDK
+- ✅ **rknn-toolkit-lite2** (v2.3.2) - Wheel auto-installed from cloned repo
 
 ### ✅ Runtime Wheel Installation - LARGELY SUCCESSFUL
 - ✅ **matplotlib ecosystem** - SUCCESSFUL (3.7.5 vs requested 3.10.3)
@@ -245,28 +192,42 @@ For critical missing packages, investigate building custom ARM64 wheels
 **Status**: Major success! 85% of packages available. Focus on deep learning alternatives.  
 **Next Action**: Test PyTorch version ranges and research deep learning alternatives
 
-## Fresh Comparison Analysis (2025-07-24)
+## Fresh Comparison Analysis (2025-07-24) - UPDATED
 
-Compared `post-init_requirements.txt` (actual runtime) with `wmt_requirements.txt` (desired):
+Compared `post-init_requirements.txt` (actual runtime with rknn-toolkit-lite2) with `wmt_requirements.txt` (desired):
 
-### Still Missing Critical Packages:
+### ✅ Successfully Installed (54/62 packages = 87%)
+Including the critical **rknn-toolkit-lite2==2.3.2** which enables RKNN hardware acceleration!
+
+### 🔴 Still Missing Critical Packages (8 packages):
 1. **onnxruntime==1.20.0** - Essential for ONNX model inference
-2. **rknn-toolkit-lite2** - Critical for RKNN hardware acceleration
-3. **torch==2.5.1** - PyTorch deep learning framework
-4. **torchvision==0.20.1** - PyTorch vision utilities
-5. **scikit-image==0.24.0** - Advanced image processing
-6. **ultralytics==8.3.4** - YOLO object detection
-7. **ultralytics-thop==2.0.14** - FLOPS computation
-8. **ruamel.yaml.clib==0.2.12** - C extension for YAML
-9. **tifffile==2025.6.11** - TIFF file support
-10. **tzdata==2025.2** - Python timezone database
+2. **torch==2.5.1** - PyTorch deep learning framework  
+3. **torchvision==0.20.1** - PyTorch vision utilities
+4. **ultralytics==8.3.4** - YOLO object detection framework
+5. **ultralytics-thop==2.0.14** - FLOPS computation for YOLO
+6. **scikit-image==0.24.0** - Advanced image processing algorithms
+7. **tifffile==2025.6.11** - TIFF file format support
+8. **tzdata==2025.2** - Python timezone database
 
-### Major Version Gaps (installed vs desired):
-- **numpy**: 1.24.4 vs 2.3.0
+### 🟡 Major Version Gaps (installed vs desired):
+- **Pillow**: 6.2.1 vs 11.2.1 (5 major versions behind!)
+- **protobuf**: 3.20.3 vs 6.31.1 (3 major versions behind)
+- **numpy**: 1.24.4 vs 2.3.0 (incompatible with many modern packages)
 - **pandas**: 1.3.5 vs 2.3.0
-- **Pillow**: 6.2.1 vs 11.2.1
-- **protobuf**: 3.20.3 vs 6.31.1
 - **scipy**: 1.10.1 vs 1.15.3
 
+### 🎯 Current Capabilities:
+**CAN RUN:**
+- ✅ RKNN models via rknn-toolkit-lite2 (BrightSign hardware accelerated!)
+- ✅ Basic OpenCV operations (4.11.0.86)
+- ✅ Matplotlib visualizations (3.7.5)
+- ✅ Basic numpy/scipy computations (older versions)
+
+**CANNOT RUN:**
+- ❌ PyTorch models (no torch/torchvision)
+- ❌ ONNX models (no onnxruntime)
+- ❌ YOLO models via ultralytics (no ultralytics framework)
+- ❌ Advanced image processing (no scikit-image, outdated Pillow)
+
 ## Key Takeaway
-The gap analysis revealed that our runtime wheel strategy is **much more successful than expected**. The critical matplotlib ecosystem works perfectly, and most utility packages install without issues. The remaining challenges are focused on cutting-edge deep learning frameworks and newer package versions that may require Python 3.8+ compatible alternatives.
+With rknn-toolkit-lite2 successfully installed, the environment now supports BrightSign's hardware-accelerated inference! However, general-purpose deep learning frameworks (PyTorch, ONNX) remain unavailable due to ARM64 wheel compatibility issues with Python 3.8.
