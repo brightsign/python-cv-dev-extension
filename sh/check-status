@@ -47,10 +47,25 @@ else
     echo "  To enable: registry write extension bsext-pydev-enable-user-scripts true"
 fi
 
-# Check pip packages directory
+# Check pip packages directory and installation status
 if [ -d "/usr/local/lib/python3.8/site-packages" ]; then
     count=$(find /usr/local/lib/python3.8/site-packages -maxdepth 1 -type d 2>/dev/null | wc -l)
     echo "  User pip packages: $((count-1)) package(s) installed"
+    
+    # Check for recent installation attempts
+    if [ -f "/storage/sd/python-init/requirements-install.log" ]; then
+        echo "  Last pip install: $(stat -c %y /storage/sd/python-init/requirements-install.log 2>/dev/null | cut -d' ' -f1-2)"
+        # Check if last installation was successful
+        if tail -n 1 /storage/sd/python-init/requirements-install.log 2>/dev/null | grep -q "completed successfully"; then
+            echo "  Last install result: SUCCESS"
+        elif tail -n 1 /storage/sd/python-init/requirements-install.log 2>/dev/null | grep -q "failed"; then
+            echo "  Last install result: FAILED (see /storage/sd/python-init/requirements-install.log)"
+        else
+            echo "  Last install result: UNKNOWN"
+        fi
+    else
+        echo "  No installation log found"
+    fi
 else
     echo "  User pip packages: Directory not present"
 fi

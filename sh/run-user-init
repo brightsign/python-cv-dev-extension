@@ -31,12 +31,19 @@ if [ -f "${REQUIREMENTS_FILE}" ]; then
     # Check if pip3 is available
     if command -v pip3 >/dev/null 2>&1; then
         # Install packages with appropriate flags for embedded systems
+        echo "  Installing packages with --only-binary=:all: (no compilation)..."
         if pip3 install --only-binary=:all: -r "${REQUIREMENTS_FILE}" >> "${INSTALL_LOG}" 2>&1; then
-            echo "  Success: Packages installed from requirements.txt"
+            echo "  Success: All packages installed from requirements.txt"
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] Package installation completed successfully" >> "${INSTALL_LOG}"
         else
-            echo "  Failed: Package installation from requirements.txt (see ${INSTALL_LOG})"
+            echo "  Failed: Package installation from requirements.txt"
+            echo "  Error details:"
+            # Show last few lines of error log to console for immediate feedback
+            tail -n 5 "${INSTALL_LOG}" | sed 's/^/    /'
+            echo "  Full log available at: ${INSTALL_LOG}"
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] Package installation failed" >> "${INSTALL_LOG}"
+            # Log to syslog for system administrators
+            logger -t "bsext-pydev" "pip3 package installation failed, see ${INSTALL_LOG}"
         fi
     else
         echo "  Warning: pip3 not found, skipping package installation"

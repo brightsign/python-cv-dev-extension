@@ -35,6 +35,8 @@ TOOLCHAIN_TARGET_TASK += "\
     python3-networkx \
     python3-imageio \
     python3-ruamel-yaml \
+    python3-pandas \
+    python3-scikit-image \
 "
 #     packagegroup-rknn \
 #

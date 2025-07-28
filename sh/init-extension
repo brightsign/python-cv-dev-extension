@@ -2,8 +2,6 @@
 # Extension initialization script
 # Called by bsext_init during start
 
-set -e
-
 SCRIPT_DIR=$(dirname $(realpath $0))
 EXTENSION_HOME=$(dirname ${SCRIPT_DIR})
 
@@ -24,17 +22,30 @@ if [ -f "$RKNN_WHEEL" ]; then
     echo "Checking rknn-toolkit-lite2 installation..."
     if ! python3 -c "import rknnlite" 2>/dev/null; then
         echo "Installing rknn-toolkit-lite2..."
-        pip3 install --no-deps "$RKNN_WHEEL" || {
-            echo "Warning: Failed to install rknn-toolkit-lite2"
-        }
+        if pip3 install --no-deps "$RKNN_WHEEL"; then
+            echo "  Success: rknn-toolkit-lite2 installed"
+        else
+            echo "  Warning: Failed to install rknn-toolkit-lite2 (extension will continue)"
+            logger -t "bsext-pydev" "RKNN toolkit installation failed but extension continues"
+        fi
     else
-        echo "rknn-toolkit-lite2 already installed"
+        echo "  rknn-toolkit-lite2 already installed"
     fi
+else
+    echo "RKNN wheel not found, skipping RKNN installation"
 fi
 
 # Run user initialization if configured
 if [ -x "${SCRIPT_DIR}/run-user-init" ]; then
-    "${SCRIPT_DIR}/run-user-init"
+    echo "Running user initialization..."
+    if "${SCRIPT_DIR}/run-user-init"; then
+        echo "  User initialization completed"
+    else
+        echo "  Warning: User initialization had errors (extension continues)"
+        logger -t "bsext-pydev" "User initialization failed but extension continues"
+    fi
+else
+    echo "User initialization script not found or not executable, skipping"
 fi
 
 echo "Python Development Extension initialized successfully"
