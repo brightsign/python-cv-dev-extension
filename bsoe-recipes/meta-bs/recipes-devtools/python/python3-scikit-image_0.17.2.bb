@@ -5,14 +5,16 @@ high-quality, peer-reviewed code, written by an active community of volunteers."
 HOMEPAGE = "https://github.com/scikit-image/scikit-image"
 SECTION = "devel/python"
 LICENSE = "BSD-3-Clause"
-# LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=PLACEHOLDER_WILL_UPDATE_AFTER_FETCH"
+LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=850ce197dcedf0246c6db98622c1a2c9"
 
-PYPI_PACKAGE = "scikit_image"
-PV = "0.19.3"
+PV = "0.17.2"
 
-SRC_URI[sha256sum] = "4eb877c98d1395769daef5bc2ba8a7efd3f736c87086aecb3775a9174593398b"
+SRC_URI = "https://files.pythonhosted.org/packages/82/58/a4b01da2a8e1477620e131b9c7b4920dd0f435f2b93463eaa28bc9e52e95/scikit-image-${PV}.tar.gz"
+SRC_URI[sha256sum] = "bd954c0588f0f7e81d9763dc95e06950e68247d540476e06cb77bcbcd8c2d8b3"
 
-inherit pypi setuptools3
+S = "${WORKDIR}/scikit-image-${PV}"
+
+inherit setuptools3
 
 DEPENDS += " \
     python3-numpy-native \

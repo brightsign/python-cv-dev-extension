@@ -181,7 +181,7 @@ add_extension_scripts() {
 
     # Copy supporting scripts
     mkdir -p install/sh
-    cp sh/{init-extension,cleanup-extension,check-status,run-user-init,setup_python_env,pydev-env} install/sh/
+    cp sh/{init-extension,cleanup-extension,check-status,run-user-init,setup_python_env,pydev-env,test_python_imports} install/sh/
     chmod +x install/sh/*
 
     success "Extension scripts added"

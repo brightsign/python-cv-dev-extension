@@ -1,0 +1,335 @@
+#!/bin/sh
+# BrightSign Python Extension Import Testing Script
+# Tests availability of SDK-built and runtime-installed Python packages
+# Usage: ./test_python_imports [--verbose] [--sdk-only] [--runtime-only]
+
+# Configuration
+VERBOSE=false
+TEST_SDK=true
+TEST_RUNTIME=true
+
+# Parse command line arguments
+while [ $# -gt 0 ]; do
+    case $1 in
+        --verbose)
+            VERBOSE=true
+            ;;
+        --sdk-only)
+            TEST_RUNTIME=false
+            ;;
+        --runtime-only)
+            TEST_SDK=false
+            ;;
+        --help)
+            echo "Usage: $0 [--verbose] [--sdk-only] [--runtime-only]"
+            echo "  --verbose     Show detailed output for each test"
+            echo "  --sdk-only    Test only SDK-built packages"
+            echo "  --runtime-only Test only runtime-installed packages"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# Logging functions
+log_verbose() {
+    if [ "$VERBOSE" = "true" ]; then
+        echo "DEBUG: $*" >&2
+    fi
+}
+
+log_info() {
+    echo "INFO: $*"
+}
+
+log_success() {
+    echo "✅ $*"
+}
+
+log_failure() {
+    echo "❌ $*"
+}
+
+log_warning() {
+    echo "⚠️  $*"
+}
+
+# Test a Python import
+test_import() {
+    local package_name="$1"
+    local import_statement="$2"
+    local description="$3"
+    
+    log_verbose "Testing import: $import_statement"
+    
+    if python3 -c "$import_statement" >/dev/null 2>&1; then
+        log_success "$package_name: $description"
+        return 0
+    else
+        log_failure "$package_name: $description"
+        if [ "$VERBOSE" = "true" ]; then
+            echo "  Error details:"
+            python3 -c "$import_statement" 2>&1 | sed 's/^/    /'
+        fi
+        return 1
+    fi
+}
+
+# Test package version
+test_version() {
+    local package_name="$1"
+    local version_check="$2"
+    
+    if [ "$VERBOSE" = "true" ]; then
+        local version
+        version=$(python3 -c "$version_check" 2>/dev/null || echo "unknown")
+        log_verbose "$package_name version: $version"
+    fi
+}
+
+# Test SDK-built packages
+test_sdk_packages() {
+    log_info "Testing SDK-built packages (always available)..."
+    local sdk_failures=0
+    
+    # Core Infrastructure
+    test_import "pip" "import pip" "Package management" || sdk_failures=$((sdk_failures + 1))
+    test_import "setuptools" "import setuptools" "Setup tools" || sdk_failures=$((sdk_failures + 1))
+    
+    # Computer Vision & Image Processing
+    test_import "OpenCV" "import cv2" "Computer vision library" || sdk_failures=$((sdk_failures + 1))
+    test_version "OpenCV" "import cv2; print(cv2.__version__)"
+    
+    test_import "Pillow" "import PIL; from PIL import Image" "Image processing library" || sdk_failures=$((sdk_failures + 1))
+    test_version "Pillow" "import PIL; print(PIL.__version__)"
+    
+    test_import "imageio" "import imageio" "Image I/O library" || sdk_failures=$((sdk_failures + 1))
+    test_version "imageio" "import imageio; print(imageio.__version__)"
+    
+    # Data Science & Analysis
+    test_import "pandas" "import pandas" "Data analysis library" || sdk_failures=$((sdk_failures + 1))
+    test_version "pandas" "import pandas; print(pandas.__version__)"
+    
+    test_import "networkx" "import networkx" "Graph analysis library" || sdk_failures=$((sdk_failures + 1))
+    test_version "networkx" "import networkx; print(networkx.__version__)"
+    
+    # Utilities & Dependencies
+    test_import "psutil" "import psutil" "System utilities" || sdk_failures=$((sdk_failures + 1))
+    test_import "tqdm" "import tqdm" "Progress bars" || sdk_failures=$((sdk_failures + 1))
+    test_import "typing_extensions" "import typing_extensions" "Type hints extensions" || sdk_failures=$((sdk_failures + 1))
+    test_import "ruamel.yaml" "import ruamel.yaml" "YAML processing" || sdk_failures=$((sdk_failures + 1))
+    test_import "jinja2" "import jinja2" "Template engine" || sdk_failures=$((sdk_failures + 1))
+    test_import "markupsafe" "import markupsafe" "Safe string handling" || sdk_failures=$((sdk_failures + 1))
+    test_import "protobuf" "import google.protobuf" "Protocol buffers" || sdk_failures=$((sdk_failures + 1))
+    
+    echo ""
+    if [ $sdk_failures -eq 0 ]; then
+        log_success "All SDK packages are available!"
+    else
+        log_failure "$sdk_failures SDK packages failed to import"
+    fi
+    
+    return $sdk_failures
+}
+
+# Test runtime-installed packages
+test_runtime_packages() {
+    log_info "Testing runtime-installed packages (require user initialization)..."
+    local runtime_failures=0
+    
+    # Deep Learning & ML
+    test_import "PyTorch" "import torch" "Deep learning framework" || runtime_failures=$((runtime_failures + 1))
+    test_version "PyTorch" "import torch; print(torch.__version__)"
+    
+    test_import "torchvision" "import torchvision" "PyTorch computer vision" || runtime_failures=$((runtime_failures + 1))
+    test_version "torchvision" "import torchvision; print(torchvision.__version__)"
+    
+    # Advanced Image Processing
+    test_import "scikit-image" "import skimage" "Advanced image processing" || runtime_failures=$((runtime_failures + 1))
+    test_version "scikit-image" "import skimage; print(skimage.__version__)"
+    
+    # Scientific Computing
+    test_import "NumPy" "import numpy" "Numerical computing" || runtime_failures=$((runtime_failures + 1))
+    test_version "NumPy" "import numpy; print(numpy.__version__)"
+    
+    test_import "SciPy" "import scipy" "Scientific computing" || runtime_failures=$((runtime_failures + 1))
+    test_version "SciPy" "import scipy; print(scipy.__version__)"
+    
+    # Visualization
+    test_import "matplotlib" "import matplotlib.pyplot" "Plotting library" || runtime_failures=$((runtime_failures + 1))
+    test_version "matplotlib" "import matplotlib; print(matplotlib.__version__)"
+    
+    # BrightSign Hardware Acceleration
+    test_import "RKNN Toolkit" "import rknn_toolkit_lite2" "BrightSign NPU acceleration" || runtime_failures=$((runtime_failures + 1))
+    test_version "RKNN Toolkit" "import rknn_toolkit_lite2; print(rknn_toolkit_lite2.__version__)"
+    
+    # Additional Common Packages
+    test_import "requests" "import requests" "HTTP library" || runtime_failures=$((runtime_failures + 1))
+    test_import "PyYAML" "import yaml" "YAML processing" || runtime_failures=$((runtime_failures + 1))
+    test_import "seaborn" "import seaborn" "Statistical visualization" || runtime_failures=$((runtime_failures + 1))
+    
+    echo ""
+    if [ $runtime_failures -eq 0 ]; then
+        log_success "All runtime packages are available!"
+    else
+        log_warning "$runtime_failures runtime packages failed to import"
+        log_info "Runtime packages require user initialization with pip install"
+    fi
+    
+    return $runtime_failures
+}
+
+# Check Python environment
+check_python_environment() {
+    log_info "Checking Python environment..."
+    
+    # Check Python version
+    local python_version
+    python_version=$(python3 --version 2>&1)
+    log_info "Python version: $python_version"
+    
+    # Check if extension environment is set up
+    if [ -n "$BRIGHTSIGN_PYTHON_EXTENSION_HOME" ]; then
+        log_success "Extension environment detected: $BRIGHTSIGN_PYTHON_EXTENSION_HOME"
+    else
+        log_warning "Extension environment not detected - run 'source sh/setup_python_env' first"
+    fi
+    
+    # Check PYTHONPATH
+    if [ "$VERBOSE" = "true" ]; then
+        log_verbose "PYTHONPATH: $PYTHONPATH"
+        log_verbose "PATH: $PATH"
+        log_verbose "LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+    fi
+    
+    echo ""
+}
+
+# Comprehensive package test with integration check
+test_integration() {
+    log_info "Testing package integration..."
+    
+    local integration_test='
+import sys
+print("Python executable:", sys.executable)
+
+# Test basic CV pipeline
+try:
+    import cv2
+    import numpy as np
+    import PIL.Image
+    
+    # Create test image
+    test_img = np.zeros((100, 100, 3), dtype=np.uint8)
+    test_img[25:75, 25:75] = [255, 0, 0]  # Red square
+    
+    # OpenCV operations
+    gray = cv2.cvtColor(test_img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # PIL operations
+    pil_img = PIL.Image.fromarray(test_img)
+    resized = pil_img.resize((50, 50))
+    
+    print("✅ Basic CV pipeline working")
+except Exception as e:
+    print("❌ Basic CV pipeline failed:", e)
+
+# Test data science integration
+try:
+    import pandas as pd
+    import numpy as np
+    
+    # Create test DataFrame
+    df = pd.DataFrame({
+        "x": np.random.randn(10),
+        "y": np.random.randn(10)
+    })
+    
+    # Basic operations
+    result = df.describe()
+    correlation = df.corr()
+    
+    print("✅ Data science integration working")
+except Exception as e:
+    print("❌ Data science integration failed:", e)
+
+# Test advanced packages if available
+try:
+    import torch
+    import sklearn
+    
+    # Basic tensor operations
+    x = torch.randn(5, 3)
+    y = torch.randn(3, 5)
+    z = torch.mm(x, y)
+    
+    print("✅ Advanced ML integration working")
+except ImportError:
+    print("ℹ️  Advanced ML packages not available (requires user initialization)")
+except Exception as e:
+    print("❌ Advanced ML integration failed:", e)
+'
+    
+    python3 -c "$integration_test"
+    echo ""
+}
+
+# Main execution
+main() {
+    log_info "BrightSign Python Extension Import Testing"
+    log_info "=========================================="
+    echo ""
+    
+    # Check environment
+    check_python_environment
+    
+    local total_failures=0
+    
+    # Test SDK packages
+    if [ "$TEST_SDK" = "true" ]; then
+        test_sdk_packages
+        total_failures=$((total_failures + $?))
+        echo ""
+    fi
+    
+    # Test runtime packages
+    if [ "$TEST_RUNTIME" = "true" ]; then
+        test_runtime_packages
+        total_failures=$((total_failures + $?))
+        echo ""
+    fi
+    
+    # Integration test
+    test_integration
+    
+    # Summary
+    log_info "Test Summary"
+    log_info "============"
+    if [ $total_failures -eq 0 ]; then
+        log_success "All requested packages are available and working!"
+    else
+        log_warning "$total_failures package(s) failed import tests"
+        log_info "Run with --verbose for detailed error information"
+    fi
+    
+    # Usage recommendations
+    echo ""
+    log_info "Usage Recommendations:"
+    if [ "$TEST_SDK" = "true" ] && [ "$TEST_RUNTIME" = "true" ]; then
+        echo "• SDK packages are always available after sourcing setup_python_env"
+        echo "• Runtime packages require user initialization (pip install)"
+        echo "• Use 'source sh/setup_python_env' to set up the Python environment"
+        echo "• Deploy examples to /storage/sd/python-init/ for automatic package installation"
+    fi
+    
+    return $total_failures
+}
+
+# Execute main function
+main "$@"

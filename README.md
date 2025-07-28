@@ -809,37 +809,62 @@ docker image prune -f  # Clean up old unused images
 
 After deploying the extension to a BrightSign player, you can verify that all Python CV/ML packages are properly installed:
 
-**Option 1: Deploy User Init Scripts (Recommended)**
+**Option 1: Comprehensive Import Testing (Recommended)**
 
 ```sh
-# From development host, deploy CV test scripts to player
-cd user-init/tools/
-./deploy-to-player.sh <player-ip> [password]
+# On the BrightSign player (via SSH)
+source /var/volatile/bsext/ext_pydev/sh/setup_python_env
+/var/volatile/bsext/ext_pydev/sh/test_python_imports
 
-# Restart extension to run tests
-ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
-
-# View test results
-ssh admin@<player-ip> "cat /storage/sd/cv_test.log"
+# For detailed output:
+/var/volatile/bsext/ext_pydev/sh/test_python_imports --verbose
 ```
 
-**Option 2: Manual Testing on Player**
+**Option 2: Quick Manual Testing**
 
 ```sh
 # On the BrightSign player (via SSH or serial console)
-source /var/volatile/bsext/ext_pydev/setup_python_env
-python3 -c "import cv2, torch, numpy; print('Core packages working')"
+source /var/volatile/bsext/ext_pydev/sh/setup_python_env
+python3 -c "import cv2, pandas, torch, numpy; print('Core packages working')"
 ```
 
-The test script will:
+### Package Availability
 
-- Check that all core CV/ML packages can be imported (OpenCV, PyTorch, ONNX, etc.)
-- Verify scientific computing libraries (NumPy, SciPy)
-- Test dependency packages (protobuf, typing-extensions, etc.)
-- Attempt to load the native RKNN runtime library
-- Provide a summary of successful vs. failed package imports
+The extension provides packages through two mechanisms:
 
-Expected output should show ✓ marks for all packages. Any ✗ marks indicate missing or broken packages that need investigation.
+**✅ SDK-Built Packages (Always Available)**
+These are built into the extension and available immediately after sourcing `setup_python_env`:
+
+```python
+import cv2              # OpenCV computer vision
+import pandas           # Data analysis (v2.0.3)
+import PIL              # Image processing (Pillow)
+import networkx         # Graph analysis
+import imageio          # Image I/O
+import psutil           # System utilities
+import tqdm             # Progress bars
+import ruamel.yaml      # YAML processing
+import jinja2           # Template engine
+import markupsafe       # Safe string handling
+import google.protobuf  # Protocol buffers
+# Plus: pip, setuptools, typing_extensions
+```
+
+**🔄 Runtime-Installed Packages (After User Initialization)**
+These require user initialization via pip install and are available after running user-init scripts:
+
+```python
+import torch            # PyTorch deep learning (v2.4.1)
+import torchvision      # PyTorch computer vision (v0.19.1)
+import skimage          # Advanced image processing (v0.21.0)
+import scipy            # Scientific computing (v1.10.1)
+import matplotlib       # Plotting and visualization (v3.7.5)
+import numpy            # Numerical computing (v1.24.4)
+import rknn_toolkit_lite2  # BrightSign NPU acceleration (v2.3.2)
+# Plus: 50+ additional scientific and utility packages
+```
+
+The test script provides detailed import testing with success/failure reporting for both package categories.
 
 ## Player Setup and Deployment
 
