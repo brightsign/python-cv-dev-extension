@@ -27,7 +27,7 @@ numpy==2.3.0
 # opencv-python==4.11.0.86  # Removed: using native python3-opencv from SDK instead
 packaging==25.0
 pandas==2.3.0
-pillow==11.2.1
+pillow==11.3.0
 protobuf==6.31.1
 psutil==7.0.0
 py-cpuinfo==9.0.0
