@@ -13,9 +13,20 @@ srv/
 tk/
 player/
 
+# Generated requirements files
 *_requirements.txt
+!wmt_requirements.txt
+requirements-install.log
 
 # Generated extension packages (can be very large)
 *.zip
 pydev-*.zip
 ext_pydev-*.zip
+
+# Analysis and log files
+*.log
+missing_packages_analysis.txt
+requirements-analysis.md
+
+# Legacy scripts
+package-dev-to-target.sh
