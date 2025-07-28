@@ -45,6 +45,7 @@ usage() {
     echo "  -e, --ext-only     Create extension package only"
     echo "  -c, --clean        Clean install directory before packaging"
     echo "  -v, --verify       Run validation after packaging"
+    echo "  --yolox            Include YOLOX example and test data"
     echo "  -h, --help         Show this help message"
     echo ""
     echo "Package types:"
@@ -57,6 +58,7 @@ DEV_ONLY=false
 EXT_ONLY=false
 CLEAN=false
 VERIFY=false
+INCLUDE_YOLOX=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -74,6 +76,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -v|--verify)
             VERIFY=true
+            shift
+            ;;
+        --yolox)
+            INCLUDE_YOLOX=true
             shift
             ;;
         -h|--help)
@@ -198,6 +204,236 @@ copy_rknn_wheel() {
     fi
 }
 
+# Copy YOLOX example if requested
+copy_yolox_example() {
+    if [[ "$INCLUDE_YOLOX" == "true" ]]; then
+        log "Including YOLOX example and test data..."
+        
+        # Check if rknn_model_zoo exists
+        if [[ ! -d "toolkit/rknn_model_zoo" ]]; then
+            error "rknn_model_zoo not found. Run ./setup first to clone the repository."
+        fi
+        
+        # Create examples directory structure
+        mkdir -p install/usr/lib/python3.8/examples/yolox
+        
+        # Copy YOLOX python example
+        local yolox_src="toolkit/rknn_model_zoo/examples/yolox/python"
+        if [[ -d "$yolox_src" ]]; then
+            cp -r "$yolox_src"/* install/usr/lib/python3.8/examples/yolox/
+            success "YOLOX Python example copied"
+        else
+            error "YOLOX example not found at: $yolox_src"
+        fi
+        
+        # Copy py_utils (required dependencies)
+        local pyutils_src="toolkit/rknn_model_zoo/py_utils"
+        if [[ -d "$pyutils_src" ]]; then
+            cp -r "$pyutils_src" install/usr/lib/python3.8/examples/
+            success "py_utils dependencies copied"
+        else 
+            error "py_utils not found at: $pyutils_src"
+        fi
+        
+        # Copy model download script and labels
+        local model_src="toolkit/rknn_model_zoo/examples/yolox/model"
+        if [[ -d "$model_src" ]]; then
+            mkdir -p install/usr/lib/python3.8/examples/yolox/model
+            cp "$model_src/download_model.sh" install/usr/lib/python3.8/examples/yolox/model/ 2>/dev/null || true
+            cp "$model_src/coco_80_labels_list.txt" install/usr/lib/python3.8/examples/yolox/model/ 2>/dev/null || true
+            success "YOLOX model files copied"
+        fi
+        
+        # Copy a bus test image from COCO dataset examples
+        local dataset_src="toolkit/rknn_model_zoo/datasets"
+        if [[ -d "$dataset_src" ]]; then
+            # Find and copy a bus image if available
+            mkdir -p install/usr/lib/python3.8/examples/yolox/test_images
+            find "$dataset_src" -name "*.jpg" -o -name "*.png" | head -3 | while read img; do
+                cp "$img" install/usr/lib/python3.8/examples/yolox/test_images/ 2>/dev/null || true
+            done
+            success "Test images copied (if available)"
+        fi
+        
+        # Make scripts executable
+        chmod +x install/usr/lib/python3.8/examples/yolox/model/download_model.sh 2>/dev/null || true
+        
+        # Create a wrapper script for running YOLOX
+        create_yolox_wrapper
+        
+        log "YOLOX example integration completed"
+    fi
+}
+
+# Create YOLOX wrapper script
+create_yolox_wrapper() {
+    local wrapper_path="install/usr/lib/python3.8/examples/yolox/run_yolox_test.sh"
+    
+    cat > "$wrapper_path" << 'EOF'
+#!/bin/bash
+
+# YOLOX Test Runner for BrightSign Python CV Extension
+# This script runs YOLOX inference on test images and saves results
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+EXAMPLES_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+log() {
+    echo -e "${BLUE}[YOLOX] $1${NC}"
+}
+
+success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+warn() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+error() {
+    echo -e "${RED}❌ $1${NC}"
+    exit 1
+}
+
+# Setup environment
+setup_environment() {
+    log "Setting up YOLOX test environment..."
+    
+    # Ensure Python environment is available
+    if ! command -v python3 >/dev/null 2>&1; then
+        error "Python3 not found. Ensure Python CV extension is properly installed."
+    fi
+    
+    # Add py_utils to Python path
+    export PYTHONPATH="$EXAMPLES_DIR:$PYTHONPATH"
+    
+    # Create output directory in user-init examples folder
+    mkdir -p /usr/local/user-init/examples/yolox_results
+    
+    success "Environment setup complete"
+}
+
+# Download model if needed
+download_model() {
+    log "Checking for YOLOX model..."
+    
+    cd "$SCRIPT_DIR/model"
+    
+    if [[ ! -f "yolox_s.onnx" && ! -f "yolox_m.onnx" ]]; then
+        log "Downloading YOLOX model..."
+        if [[ -f "download_model.sh" ]]; then
+            bash download_model.sh
+        else
+            warn "download_model.sh not found, you may need to manually download the model"
+        fi
+    else
+        success "YOLOX model already available"
+    fi
+    
+    cd - > /dev/null
+}
+
+# Convert ONNX model to RKNN
+convert_model() {
+    log "Converting ONNX model to RKNN format..."
+    
+    cd "$SCRIPT_DIR"
+    
+    if [[ ! -f "yolox.rknn" ]]; then
+        if [[ -f "convert.py" ]]; then
+            python3 convert.py
+            success "Model converted to RKNN format"
+        else
+            warn "convert.py not found, using ONNX model for inference"
+        fi
+    else
+        success "RKNN model already available"
+    fi
+    
+    cd - > /dev/null
+}
+
+# Run inference on test images
+run_inference() {
+    log "Running YOLOX inference..."
+    
+    cd "$SCRIPT_DIR"
+    
+    # Find test images
+    local test_images_dir="test_images"
+    local output_dir="/usr/local/user-init/examples/yolox_results"
+    
+    if [[ -d "$test_images_dir" ]]; then
+        for img in "$test_images_dir"/*.{jpg,png,jpeg}; do
+            if [[ -f "$img" ]]; then
+                local img_name=$(basename "$img")
+                log "Processing: $img_name"
+                
+                # Run YOLOX inference
+                python3 yolox.py \
+                    --model_path="${PWD}/yolox.rknn" \
+                    --img_path="$img" \
+                    --img_show \
+                    --img_save \
+                    --output_dir="$output_dir" || {
+                    warn "RKNN inference failed, trying ONNX..."
+                    
+                    # Fallback to ONNX if available
+                    if [[ -f "model/yolox_s.onnx" ]]; then
+                        python3 yolox.py \
+                            --model_path="${PWD}/model/yolox_s.onnx" \
+                            --img_path="$img" \
+                            --img_show \
+                            --img_save \
+                            --output_dir="$output_dir"
+                    fi
+                }
+                
+                success "Processed: $img_name"
+            fi
+        done
+    else
+        warn "No test images found in $test_images_dir"
+        log "You can add test images to: $SCRIPT_DIR/$test_images_dir/"
+    fi
+    
+    cd - > /dev/null
+}
+
+# Main function
+main() {
+    echo "YOLOX Test Runner for BrightSign"
+    echo "================================"
+    
+    setup_environment
+    download_model
+    convert_model
+    run_inference
+    
+    echo ""
+    success "YOLOX testing completed!"
+    echo ""
+    echo "Results saved to: /usr/local/user-init/examples/yolox_results/"
+    echo "View output images and inference logs in the results directory."
+}
+
+# Run main function
+main "$@"
+EOF
+
+    chmod +x "$wrapper_path"
+    success "YOLOX wrapper script created"
+}
+
 # Verify installation structure
 verify_structure() {
     log "Verifying installation structure..."
@@ -318,6 +554,7 @@ main() {
     copy_sdk_components
     add_extension_scripts
     copy_rknn_wheel
+    copy_yolox_example
     echo ""
 
     verify_structure

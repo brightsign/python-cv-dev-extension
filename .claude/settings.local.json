@@ -72,7 +72,13 @@
       "Bash(diff:*)",
       "Bash(sh:*)",
       "Bash(git reset:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(export:*)",
+      "Bash(source:*)",
+      "Bash(./run_yolox_test.sh:*)",
+      "Bash(./brightsign-x86_64-cobra-toolchain-9.1.52.sh:*)",
+      "Bash(nm:*)"
     ],
     "deny": []
   }

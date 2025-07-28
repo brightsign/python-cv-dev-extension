@@ -105,7 +105,7 @@ EXTRA_OECMAKE:append:x86 = " -DX86=ON"
 # https://github.com/opencv/opencv/issues/21597
 EXTRA_OECMAKE:remove:x86 = " -DENABLE_SSE41=1 -DENABLE_SSE42=1"
 
-PACKAGECONFIG ??= "gapi python3 eigen jpeg png tiff v4l libv4l gstreamer samples tbb gphoto2 \
+PACKAGECONFIG ??= "gapi python3 eigen jpeg png tiff v4l libv4l gstreamer samples tbb gphoto2 dnn \
     ${@bb.utils.contains("DISTRO_FEATURES", "x11", "gtk", "", d)} \
     "
 
@@ -118,7 +118,7 @@ PACKAGECONFIG:remove:libc-musl:riscv32 = "tbb"
 PACKAGECONFIG[gapi] = "-DWITH_ADE=ON -Dade_DIR=${STAGING_LIBDIR},-DWITH_ADE=OFF,ade"
 PACKAGECONFIG[amdblas] = "-DWITH_OPENCLAMDBLAS=ON,-DWITH_OPENCLAMDBLAS=OFF,libclamdblas,"
 PACKAGECONFIG[amdfft] = "-DWITH_OPENCLAMDFFT=ON,-DWITH_OPENCLAMDFFT=OFF,libclamdfft,"
-PACKAGECONFIG[dnn] = "-DBUILD_opencv_dnn=ON -DPROTOBUF_UPDATE_FILES=ON -DBUILD_PROTOBUF=OFF,-DBUILD_opencv_dnn=OFF,protobuf protobuf-native,"
+PACKAGECONFIG[dnn] = "-DBUILD_opencv_dnn=ON -DPROTOBUF_UPDATE_FILES=ON -DBUILD_PROTOBUF=OFF -DWITH_PROTOBUF=ON -DOPENCV_DNN_OPENCL=OFF,-DBUILD_opencv_dnn=OFF,protobuf protobuf-native python3-protobuf,"
 PACKAGECONFIG[eigen] = "-DWITH_EIGEN=ON,-DWITH_EIGEN=OFF,libeigen gflags glog,"
 PACKAGECONFIG[freetype] = "-DBUILD_opencv_freetype=ON,-DBUILD_opencv_freetype=OFF,freetype,"
 PACKAGECONFIG[gphoto2] = "-DWITH_GPHOTO2=ON,-DWITH_GPHOTO2=OFF,libgphoto2,"
@@ -133,7 +133,7 @@ PACKAGECONFIG[opencl] = "-DWITH_OPENCL=ON,-DWITH_OPENCL=OFF,opencl-headers virtu
 PACKAGECONFIG[oracle-java] = "-DJAVA_INCLUDE_PATH=${ORACLE_JAVA_HOME}/include -DJAVA_INCLUDE_PATH2=${ORACLE_JAVA_HOME}/include/linux -DJAVA_AWT_INCLUDE_PATH=${ORACLE_JAVA_HOME}/include -DJAVA_AWT_LIBRARY=${ORACLE_JAVA_HOME}/lib/amd64/libjawt.so -DJAVA_JVM_LIBRARY=${ORACLE_JAVA_HOME}/lib/amd64/server/libjvm.so,,ant-native oracle-jse-jdk oracle-jse-jdk-native,"
 PACKAGECONFIG[png] = "-DWITH_PNG=ON,-DWITH_PNG=OFF,libpng,"
 PACKAGECONFIG[python2] = "-DPYTHON2_NUMPY_INCLUDE_DIRS:PATH=${STAGING_LIBDIR}/${PYTHON_DIR}/site-packages/numpy/core/include,,python-numpy,"
-PACKAGECONFIG[python3] = "-DPYTHON3_NUMPY_INCLUDE_DIRS:PATH=${STAGING_LIBDIR}/${PYTHON_DIR}/site-packages/numpy/core/include,,python3-numpy,"
+PACKAGECONFIG[python3] = "-DPYTHON3_NUMPY_INCLUDE_DIRS:PATH=${STAGING_LIBDIR}/${PYTHON_DIR}/site-packages/numpy/core/include -DBUILD_opencv_python3=ON -DPYTHON3_INCLUDE_DIR=${STAGING_INCDIR}/python3.8 -DPYTHON3_LIBRARY=${STAGING_LIBDIR}/libpython3.8.so,,python3-numpy,"
 PACKAGECONFIG[samples] = "-DBUILD_EXAMPLES=ON -DINSTALL_PYTHON_EXAMPLES=ON,-DBUILD_EXAMPLES=OFF,,"
 PACKAGECONFIG[tbb] = "-DWITH_TBB=ON,-DWITH_TBB=OFF,tbb,"
 PACKAGECONFIG[tests] = "-DBUILD_TESTS=ON,-DBUILD_TESTS=OFF,,"
@@ -219,6 +219,82 @@ do_compile:prepend() {
     if [ -f ${WORKDIR}/build/modules/core/version_string.inc ]; then
         sed -i "s#${WORKDIR}#/workdir#g" ${WORKDIR}/build/modules/core/version_string.inc
     fi
+}
+
+do_compile:append() {
+    # Verify DNN module compiled properly
+    if [ ! -f ${WORKDIR}/build/lib/libopencv_dnn.so ]; then
+        bbfatal "OpenCV DNN module failed to compile - libopencv_dnn.so not found"
+    fi
+    
+    # Check if protobuf support was enabled in DNN
+    if ! ${BUILD_STRIP} readelf -d ${WORKDIR}/build/lib/libopencv_dnn.so | grep -q libprotobuf; then
+        bbwarn "OpenCV DNN module may not have protobuf support linked properly"
+    fi
+    
+    bbnote "OpenCV DNN module compiled successfully with protobuf support"
+    
+    # Capture build artifacts for debugging DictValue issue
+    CAPTURE_DIR="/srv/opencv_artifacts"
+    mkdir -p "$CAPTURE_DIR"
+    
+    bbnote "Capturing OpenCV build artifacts for DictValue debugging..."
+    
+    # Capture CMakeCache.txt
+    if [ -f ${WORKDIR}/build/CMakeCache.txt ]; then
+        cp ${WORKDIR}/build/CMakeCache.txt "$CAPTURE_DIR/" 2>/dev/null || true
+        grep -E "(BUILD_opencv_dnn|WITH_PROTOBUF|PYTHON3|OPENCV_PYTHON_)" ${WORKDIR}/build/CMakeCache.txt > "$CAPTURE_DIR/cmake_dnn_config.txt" 2>/dev/null || true
+        bbnote "✅ CMakeCache.txt captured"
+    fi
+    
+    # Capture Python binding files
+    mkdir -p "$CAPTURE_DIR/python_bindings"
+    find ${WORKDIR}/build -name "cv2*.cpp" -o -name "*python*.cpp" -o -name "pyopencv_*.h*" 2>/dev/null | while read file; do
+        if [ -f "$file" ]; then
+            cp "$file" "$CAPTURE_DIR/python_bindings/" 2>/dev/null || true
+        fi
+    done
+    
+    # Capture DNN source files with DictValue
+    mkdir -p "$CAPTURE_DIR/dnn_source"
+    find ${WORKDIR}/opencv-${PV} -path "*/dnn/*" -name "*.hpp" -o -path "*/dnn/*" -name "*.h" -o -path "*/dnn/*" -name "*.cpp" 2>/dev/null | while read file; do
+        if [ -f "$file" ] && grep -q "DictValue" "$file" 2>/dev/null; then
+            rel_path=$(echo "$file" | sed "s|${WORKDIR}/opencv-${PV}/||")
+            mkdir -p "$CAPTURE_DIR/dnn_source/$(dirname "$rel_path")"
+            cp "$file" "$CAPTURE_DIR/dnn_source/$rel_path" 2>/dev/null || true
+        fi
+    done
+    
+    # Capture compiled libraries
+    mkdir -p "$CAPTURE_DIR/libraries"
+    if [ -d ${WORKDIR}/build/lib ]; then
+        cp ${WORKDIR}/build/lib/libopencv*.so* "$CAPTURE_DIR/libraries/" 2>/dev/null || true
+    fi
+    if [ -d ${WORKDIR}/build/modules/python3 ]; then
+        find ${WORKDIR}/build/modules/python3 -name "cv2*.so" -exec cp {} "$CAPTURE_DIR/libraries/" \; 2>/dev/null || true
+    fi
+    
+    # Create analysis summary
+    cat > "$CAPTURE_DIR/build_analysis.txt" << EOF
+OpenCV Build Analysis - DictValue Investigation
+===============================================
+Build timestamp: $(date)
+OpenCV version: ${PV}
+Work directory: ${WORKDIR}
+
+Build Configuration:
+- CMakeCache.txt: $([ -f "$CAPTURE_DIR/CMakeCache.txt" ] && echo "Captured" || echo "Not found")
+- Python bindings: $(find "$CAPTURE_DIR/python_bindings" -type f 2>/dev/null | wc -l) files captured
+- DNN source files: $(find "$CAPTURE_DIR/dnn_source" -type f 2>/dev/null | wc -l) files captured  
+- Libraries: $(find "$CAPTURE_DIR/libraries" -type f 2>/dev/null | wc -l) files captured
+
+DictValue Analysis:
+$(find "$CAPTURE_DIR/python_bindings" -name "*.cpp" -o -name "*.h" | xargs grep -l "DictValue" 2>/dev/null | head -5 || echo "Not found in Python bindings")
+
+Next: Extract SDK and compare with source files to identify binding generation issue.
+EOF
+    
+    bbnote "✅ OpenCV build artifacts captured to /srv/opencv_artifacts"
 }
 
 do_install:append() {

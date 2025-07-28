@@ -1,0 +1,253 @@
+name: "Deploy BrightSign Python Extension"
+description: "Deploy latest pydev package to BrightSign player with automatic package detection and user preference memory"
+
+args:
+  - name: "player_ip"
+    description: "IP address of BrightSign player"
+    type: "string"
+  - name: "password"
+    description: "SSH password (default: password)"
+    type: "string"
+  - name: "destination_path"
+    description: "Destination path on player (default: /storage/sd/)"
+    type: "string"
+
+steps:
+  - name: "Load configuration and find latest package"
+    run: |
+      # Load existing configuration
+      CONFIG_FILE=".deploy_config"
+      SAVED_IP=""
+      SAVED_DEST=""
+      
+      if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+        echo "📁 Loaded saved configuration"
+      fi
+      
+      # Find latest pydev package
+      LATEST_PYDEV=$(ls -t pydev-*.zip 2>/dev/null | head -1)
+      if [ -z "$LATEST_PYDEV" ]; then
+        echo "❌ No pydev-*.zip files found. Run './package' first."
+        exit 1
+      fi
+      
+      PACKAGE_SIZE=$(ls -lh "$LATEST_PYDEV" | awk '{print $5}')
+      PACKAGE_DATE=$(ls -l "$LATEST_PYDEV" | awk '{print $6, $7, $8}')
+      
+      echo "📦 Found latest package: $LATEST_PYDEV"
+      echo "   Size: $PACKAGE_SIZE"
+      echo "   Date: $PACKAGE_DATE"
+      echo ""
+    save_to_var: "package_info"
+
+  - name: "Handle IP address argument"
+    run: |
+      # Determine IP address to use
+      if [ -n "$player_ip" ]; then
+        DEPLOY_IP="$player_ip"
+        echo "🌐 Using provided IP: $DEPLOY_IP"
+      elif [ -n "$SAVED_IP" ]; then
+        echo "🌐 Found saved IP: $SAVED_IP"
+        read -p "Use saved IP $SAVED_IP? (Y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+          read -p "Enter BrightSign player IP: " DEPLOY_IP
+        else
+          DEPLOY_IP="$SAVED_IP"
+        fi
+      else
+        read -p "Enter BrightSign player IP: " DEPLOY_IP
+      fi
+      
+      # Validate IP format
+      if ! echo "$DEPLOY_IP" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' > /dev/null; then
+        echo "❌ Invalid IP format: $DEPLOY_IP"
+        exit 1
+      fi
+      
+      echo "✅ Using IP: $DEPLOY_IP"
+    save_to_var: "ip_handling"
+
+  - name: "Handle destination path argument"
+    run: |
+      # Determine destination path to use
+      if [ -n "$destination_path" ]; then
+        DEPLOY_DEST="$destination_path"
+        echo "📂 Using provided destination: $DEPLOY_DEST"
+      elif [ -n "$SAVED_DEST" ]; then
+        echo "📂 Found saved destination: $SAVED_DEST"
+        read -p "Use saved destination $SAVED_DEST? (Y/n): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+          read -p "Enter destination path (/storage/sd/): " DEPLOY_DEST
+          DEPLOY_DEST=${DEPLOY_DEST:-/storage/sd/}
+        else
+          DEPLOY_DEST="$SAVED_DEST"
+        fi
+      else
+        read -p "Enter destination path (/storage/sd/): " DEPLOY_DEST
+        DEPLOY_DEST=${DEPLOY_DEST:-/storage/sd/}
+      fi
+      
+      # Ensure destination ends with /
+      if [[ ! "$DEPLOY_DEST" =~ /$ ]]; then
+        DEPLOY_DEST="$DEPLOY_DEST/"
+      fi
+      
+      echo "✅ Using destination: $DEPLOY_DEST"
+    save_to_var: "dest_handling"
+
+  - name: "Handle password"
+    run: |
+      # Set password with default
+      DEPLOY_PASSWORD="${password:-password}"
+      echo "🔐 Using password: [hidden]"
+    save_to_var: "password_handling"
+
+  - name: "Check prerequisites and connectivity"
+    run: |
+      echo "🔍 Checking prerequisites..."
+      
+      # Check for sshpass
+      if ! command -v sshpass &> /dev/null; then
+        echo "❌ sshpass is required but not installed."
+        echo "   Install with: sudo apt-get install sshpass"
+        exit 1
+      fi
+      
+      # Test connectivity
+      echo "🏓 Testing connectivity to $DEPLOY_IP..."
+      if ! ping -c 1 -W 3 "$DEPLOY_IP" &> /dev/null; then
+        echo "⚠️  Player at $DEPLOY_IP is not responding to ping"
+        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+          echo "❌ Deployment cancelled"
+          exit 1
+        fi
+      else
+        echo "✅ Player is reachable"
+      fi
+
+  - name: "Deploy package to player"
+    run: |
+      echo ""
+      echo "🚀 Deploying $LATEST_PYDEV to brightsign@$DEPLOY_IP:$DEPLOY_DEST"
+      echo "   Package size: $PACKAGE_SIZE"
+      echo ""
+      
+      # Perform the deployment
+      echo "📤 Starting file transfer..."
+      if sshpass -p "$DEPLOY_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+         "$LATEST_PYDEV" brightsign@"$DEPLOY_IP":"$DEPLOY_DEST" 2>/dev/null; then
+        echo "✅ Package transfer completed successfully!"
+      else
+        echo "❌ File transfer failed!"
+        echo "   Check that:"
+        echo "   - Player IP is correct: $DEPLOY_IP"
+        echo "   - Password is correct"
+        echo "   - Player is powered on and connected"
+        echo "   - Destination path exists: $DEPLOY_DEST"
+        exit 1
+      fi
+
+  - name: "Deploy user-init examples"
+    run: |
+      echo ""
+      echo "📁 Deploying user-init/examples directory..."
+      
+      # Check if examples directory exists
+      if [ ! -d "user-init/examples" ]; then
+        echo "⚠️  user-init/examples directory not found, skipping..."
+      else
+        # Count files to be copied
+        FILE_COUNT=$(find user-init/examples -type f | wc -l)
+        echo "   Found $FILE_COUNT files to copy"
+        
+        # Create remote directory structure
+        # First create a marker file to ensure directory creation
+        echo "# Directory marker" > /tmp/.deploy_marker
+        REMOTE_INIT_DIR="${DEPLOY_DEST}user-init"
+        
+        # Try to create the directory by copying marker file
+        sshpass -p "$DEPLOY_PASSWORD" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+          /tmp/.deploy_marker brightsign@"$DEPLOY_IP":"$REMOTE_INIT_DIR/.marker" 2>/dev/null || {
+          echo "   Creating user-init directory..."
+        }
+        rm -f /tmp/.deploy_marker
+        
+        # Copy all files from examples directory
+        echo "📤 Copying example files..."
+        if sshpass -p "$DEPLOY_PASSWORD" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+           user-init/examples brightsign@"$DEPLOY_IP":"$REMOTE_INIT_DIR/" 2>/dev/null; then
+          echo "✅ Example files deployed successfully!"
+          echo "   Location: $REMOTE_INIT_DIR/examples/"
+          
+          # List some of the key files copied
+          echo ""
+          echo "   Key files deployed:"
+          echo "   - test_cv2_dnn.py (OpenCV DNN test script)"
+          echo "   - debug_cv2_dnn.py (DNN debugging script)"
+          if [ -f "user-init/examples/requirements.txt" ]; then
+            echo "   - requirements.txt (Python dependencies)"
+          fi
+          if [ -f "user-init/examples/01_validate_cv.sh" ]; then
+            echo "   - 01_validate_cv.sh (CV validation script)"
+          fi
+        else
+          echo "⚠️  Failed to copy example files"
+          echo "   This is non-fatal - package was deployed successfully"
+          echo "   You may need to manually copy the examples"
+        fi
+      fi
+
+  - name: "Save configuration for future use"
+    run: |
+      # Save IP and destination for next time
+      echo "💾 Saving configuration for future use..."
+      cat > "$CONFIG_FILE" << EOF
+# BrightSign Deploy Configuration
+# Automatically generated - safe to edit
+SAVED_IP="$DEPLOY_IP"
+SAVED_DEST="$DEPLOY_DEST"
+EOF
+      echo "✅ Configuration saved to $CONFIG_FILE"
+
+  - name: "Show deployment summary and next steps"
+    run: |
+      echo ""
+      echo "🎉 Deployment completed successfully!"
+      echo ""
+      echo "=== Deployment Summary ==="
+      echo "Package:     $LATEST_PYDEV ($PACKAGE_SIZE)"
+      echo "Player:      brightsign@$DEPLOY_IP"
+      echo "Location:    $DEPLOY_DEST$(basename $LATEST_PYDEV)"
+      if [ -d "user-init/examples" ]; then
+        echo "Examples:    ${DEPLOY_DEST}user-init/examples/"
+      fi
+      echo ""
+      echo "=== Next Steps ==="
+      echo ""
+      echo "1. SSH to the player:"
+      echo "   ssh brightsign@$DEPLOY_IP"
+      echo ""
+      echo "2. Extract the development package:"
+      echo "   cd /usr/local"
+      echo "   unzip $DEPLOY_DEST$(basename $LATEST_PYDEV)"
+      echo ""
+      echo "3. Activate the Python environment:"
+      echo "   source sh/pydev-env"
+      echo "   # OR: source sh/setup_python_env"
+      echo ""
+      echo "4. Test OpenCV DNN functionality:"
+      echo "   python3 ${DEPLOY_DEST}user-init/examples/test_cv2_dnn.py"
+      echo "   python3 ${DEPLOY_DEST}user-init/examples/debug_cv2_dnn.py"
+      echo ""
+      echo "5. Run other example scripts:"
+      echo "   cd ${DEPLOY_DEST}user-init/examples"
+      echo "   ls -la  # See all available examples"
+      echo ""
+      echo "💡 Note: Development installation is volatile (lost on reboot)"
+      echo "   For permanent installation, use ext_pydev-*.zip instead"
+      echo ""

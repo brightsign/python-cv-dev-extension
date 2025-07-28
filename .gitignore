@@ -11,6 +11,7 @@ yolo-dev*.zip
 brightsign-*-src-*.tar.gz
 srv/
 tk/
+player/
 
 *_requirements.txt
 

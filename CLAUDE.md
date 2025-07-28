@@ -29,6 +29,9 @@ The filesystem on the player is mounted read-only with only two exceptions:
 * the `build` tool runs the docker container and the `bsbb` command (wrapper for bitbake)
    - the command `setup-patches.sh` is included in the container and can be used to overlay recipes from `bsoe-recipes` to the container's source tree.
    - all changes to the source build are accomplished via this kind of overlay.
+   - **IMPORTANT**: Inside the container, use `bsbb` command (not `bitbake`) for all build operations
+   - **BrightSign source tree location**: `/home/builder/bsoe/brightsign-oe/` (inside container)
+   - For exploring available recipes: search the BrightSign source at `/home/scott/workspace/Brightsign/brightsign-npu-yolo-extension/brightsign-oe` (host)
 * the `package` tool handles the assembly of files from the expanded SDK and other sources (rknn-toolkit) into a staging directory - `install`
 
 ### Prerequisites
@@ -228,6 +231,7 @@ inherit setuptools3
 
 - Always test your recipe overlay changes by running the `build --extract-sdk` tool every time
 - Fix all warnings and errors until the build comes up clean
+- you cannot test directly on the player, but if testing python code, create a conda environment to most closely match the SDK versions (python 3.8) and install packages to match versions.  These tests will be incomplete, but may be helpful
 
 ## Script and Command Memories
 

@@ -45,7 +45,7 @@ yacs==0.1.8
 # CV / ML / Data Science stack (known-safe versions)
 numpy==1.24.4                # newer than 1.17.4, required by pandas/scipy
 pillow==6.2.1
-opencv-python==4.11.0.86
+# opencv-python==4.11.0.86  # Removed: using native python3-opencv from SDK instead
 
 # RKNN toolkit for BrightSign hardware acceleration
 #rknn-toolkit-lite2 @ file:///var/volatile/bsext/usr/lib/python3.8/wheels/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl

@@ -185,6 +185,35 @@ clone_rknn_toolkit() {
     fi
 }
 
+# Clone rknn_model_zoo repository
+clone_rknn_model_zoo() {
+    log "Cloning rknn_model_zoo repository..."
+    
+    # Clone or update rknn_model_zoo
+    if [[ -d "toolkit/rknn_model_zoo" ]]; then
+        log "rknn_model_zoo already exists, updating..."
+        cd toolkit/rknn_model_zoo
+        git fetch || warn "Failed to fetch updates"
+        git checkout v2.3.2 || warn "Failed to checkout v2.3.2 tag"
+        cd ../..
+    else
+        log "Cloning rknn_model_zoo..."
+        cd toolkit
+        git clone https://github.com/airockchip/rknn_model_zoo.git || error "Failed to clone rknn_model_zoo"
+        cd rknn_model_zoo
+        git checkout v2.3.2 || error "Failed to checkout v2.3.2 tag"
+        cd ../..
+    fi
+    
+    # Verify yolox example exists
+    YOLOX_PATH="toolkit/rknn_model_zoo/examples/yolox/python"
+    if [[ -d "$YOLOX_PATH" ]]; then
+        success "rknn_model_zoo yolox example found"
+    else
+        error "Expected yolox example not found at: $YOLOX_PATH"
+    fi
+}
+
 # Main setup function
 main() {
     echo "BrightSign Python CV Extension - Setup Script"
@@ -193,7 +222,8 @@ main() {
     echo "1. Check prerequisites"
     echo "2. Setup Docker build environment"
     echo "3. Clone rknn-toolkit2 repository"
-    echo "4. Download BrightSign OS source (~2-3 GB) inside Docker container"
+    echo "4. Clone rknn_model_zoo repository"
+    echo "5. Download BrightSign OS source (~2-3 GB) inside Docker container"
     echo ""
     echo "Building for BrightSign OS version: ${BRIGHTSIGN_OS_VERSION}"
     echo ""
@@ -215,6 +245,7 @@ main() {
     check_prerequisites
     setup_docker
     clone_rknn_toolkit
+    clone_rknn_model_zoo
     
     end_time=$(date +%s)
     duration=$((end_time - start_time))

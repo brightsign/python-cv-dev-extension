@@ -17,10 +17,13 @@ TOOLCHAIN_HOST_TASK = "\
 TOOLCHAIN_TARGET_TASK += "\
     libstdc++ \
     opencv \
+    protobuf \
     python3-core \
     python3-modules \
     python3-dev \
     python3-numpy \
+    python3-opencv \
+    python3-protobuf \
     python3-pillow \
     python3-pip \
     python3-setuptools \

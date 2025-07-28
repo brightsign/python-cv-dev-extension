@@ -7,7 +7,7 @@
 # compilation will fail.
 
 # Computer Vision packages
-opencv-python-headless>=4.5.0
+# opencv-python-headless>=4.5.0  # Using native python3-opencv from SDK instead
 pillow>=8.0.0
 
 # Machine Learning frameworks
