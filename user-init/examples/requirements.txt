@@ -55,7 +55,7 @@ tqdm==4.67.1
 typing_extensions==4.13.2
 tzdata
 tzlocal==2.1
-urllib3==2.2.3
+urllib3==2.5.0
 watchdog==4.0.2
 yacs==0.1.8
 
