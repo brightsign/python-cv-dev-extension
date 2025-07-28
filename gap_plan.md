@@ -1,5 +1,5 @@
 # Gap Analysis: wmt_requirements.txt vs post-init_requirements.txt
-## UPDATED 2025-07-24
+## UPDATED 2025-07-28
 
 ## Overview
 
@@ -17,10 +17,17 @@ Direct comparison of desired packages in `wmt_requirements.txt` with actual runt
 - **Core CV/ML stack** functional with OpenCV, matplotlib, numpy, scipy
 - **All basic utilities** installed (requests, PyYAML, redis, etc.)
 
-### ❌ What's Missing (8 packages)
-Deep learning frameworks and advanced image processing tools remain unavailable due to ARM64/Python 3.8 compatibility issues.
+### ❌ What's Missing (5 packages)
+Deep learning frameworks and advanced image processing tools remain unavailable due to ARM64/Python 3.8 compatibility issues:
 
-See detailed comparison below for the complete package-by-package analysis.
+1. **scikit-image** - Advanced image processing (no Python 3.8 ARM64 wheels)
+2. **torch** - PyTorch deep learning framework (ARM64 wheels available but complex dependencies)
+3. **torchvision** - PyTorch computer vision extensions
+4. **tifffile** - TIFF image format support (requires Python >=3.10)
+5. **tzdata** - Timezone database (pure Python package, should be installable)
+
+### ⚠️ Major Version Differences
+Several installed packages have significantly older versions that may lack features or have compatibility issues with modern workflows.
 
 ## Package Categories
 
@@ -28,30 +35,40 @@ See detailed comparison below for the complete package-by-package analysis.
 - ❌ **torch==2.5.1** - PyTorch deep learning framework
 - ❌ **torchvision==0.20.1** - PyTorch computer vision extensions
 
-**Status**: No ARM64 wheels available for Python 3.8 or incompatible dependencies
+**Status**: ARM64 wheels available via PyPI and alternative sources, but Python 3.8 compatibility uncertain
+**Python 3.8 Compatibility**: Older PyTorch versions (1.8+) have ARM64 support
 **Impact**: Major - blocks modern deep learning workflows
-**Strategy**: Research older PyTorch versions with ARM64 wheels or alternative approaches
+**Strategy**: 
+  - Try installing from official PyPI first: `pip install torch torchvision`
+  - Alternative: Use KumaTea's repository for ARM64 builds
+  - May need to use older versions (e.g., torch 1.13.x) for Python 3.8
 
 ### 🔴 HIGH PRIORITY - Advanced CV/AI Frameworks  
-- ❌ **onnxruntime==1.20.0** - ONNX model inference runtime
+- ✅ **onnxruntime** - REMOVED from wmt_requirements.txt (commented out)
 - ❌ **scikit-image==0.24.0** - Advanced image processing algorithms
-- ❌ **ultralytics==8.3.4** - YOLOv8 object detection framework
-- ❌ **ultralytics-thop==2.0.14** - Ultralytics THOP dependency
+- ✅ **ultralytics** - REMOVED from wmt_requirements.txt (commented out)
+- ✅ **ultralytics-thop** - REMOVED from wmt_requirements.txt (commented out)
 
-**Status**: No compatible ARM64 wheels or dependency conflicts
-**Impact**: Blocks advanced CV and object detection workflows
-**Strategy**: Version range testing, alternative frameworks
+**scikit-image Status**: 
+  - Version 0.24.0 requires Python >=3.10
+  - No ARM64 wheels for Python 3.8 in recent versions
+  - May need to build from source or use older versions (0.19.x)
+**Impact**: Limits advanced image processing capabilities
+**Strategy**: Use OpenCV + NumPy/SciPy for most image processing tasks
 
 ### 🟡 MEDIUM PRIORITY - File I/O and Utilities
-- ✅ **imageio==2.6.0** - Image format I/O library (existing recipe added to SDK)
-- ❌ **tifffile==2025.6.11** - TIFF image format support (no existing recipe, requires Python >=3.11)
-- ✅ **tzdata==2024a** - Timezone data (system package already available)
-- ✅ **ruamel.yaml==0.16.5** - Advanced YAML processing (existing recipe added to SDK)
-- ❌ **ruamel.yaml.clib==0.2.12** - ruamel.yaml C extension (no existing recipe)
+- ✅ **imageio==2.6.0** - INSTALLED (older version but functional)
+- ❌ **tifffile==2025.6.11** - TIFF image format support
+- ❌ **tzdata==2025.2** - Timezone database (missing but installable)
 
-**Status**: 3/5 packages available via existing recipes with older versions
-**Impact**: Medium - TIFF support missing, but basic file I/O covered
-**Strategy**: Use existing recipes; evaluate if older versions sufficient
+**tifffile Status**: 
+  - Recent versions dropped Python 3.8 support (requires Python >=3.10)
+  - For Python 3.8, need version < 2023.7.10
+**tzdata Status**: Pure Python package, should be installable via pip
+**Impact**: Medium - TIFF support limited to older versions
+**Strategy**: 
+  - Install older tifffile: `pip install "tifffile<2023.7.10"`
+  - Install tzdata: `pip install tzdata`
 
 ## Revised Implementation Strategy
 
@@ -188,46 +205,64 @@ For critical missing packages, investigate building custom ARM64 wheels
 
 ---
 
-**Last Updated**: 2025-07-24  
-**Status**: Major success! 85% of packages available. Focus on deep learning alternatives.  
-**Next Action**: Test PyTorch version ranges and research deep learning alternatives
+**Last Updated**: 2025-07-28  
+**Status**: Major success! 91.5% of active packages available. Python 3.8 is the limiting factor.  
+**Next Action**: Consider Python version upgrade path or accept current limitations with workarounds
 
-## Fresh Comparison Analysis (2025-07-24) - UPDATED
+## Fresh Comparison Analysis (2025-07-28) - COMPLETE REVIEW
 
 Compared `post-init_requirements.txt` (actual runtime with rknn-toolkit-lite2) with `wmt_requirements.txt` (desired):
 
-### ✅ Successfully Installed (54/62 packages = 87%)
+### ✅ Successfully Installed (54/59 active packages = 91.5%)
 Including the critical **rknn-toolkit-lite2==2.3.2** which enables RKNN hardware acceleration!
 
-### 🔴 Still Missing Critical Packages (8 packages):
-1. **onnxruntime==1.20.0** - Essential for ONNX model inference
-2. **torch==2.5.1** - PyTorch deep learning framework  
+### 🔴 Still Missing Critical Packages (5 packages):
+1. **scikit-image==0.24.0** - Advanced image processing algorithms (Python 3.8 incompatible)
+2. **torch==2.5.1** - PyTorch deep learning framework (complex ARM64 setup)
 3. **torchvision==0.20.1** - PyTorch vision utilities
-4. **ultralytics==8.3.4** - YOLO object detection framework
-5. **ultralytics-thop==2.0.14** - FLOPS computation for YOLO
-6. **scikit-image==0.24.0** - Advanced image processing algorithms
-7. **tifffile==2025.6.11** - TIFF file format support
-8. **tzdata==2025.2** - Python timezone database
+4. **tifffile==2025.6.11** - TIFF file format support (requires Python >=3.10)
+5. **tzdata==2025.2** - Python timezone database (should be installable)
 
-### 🟡 Major Version Gaps (installed vs desired):
-- **Pillow**: 6.2.1 vs 11.2.1 (5 major versions behind!)
-- **protobuf**: 3.20.3 vs 6.31.1 (3 major versions behind)
-- **numpy**: 1.24.4 vs 2.3.0 (incompatible with many modern packages)
-- **pandas**: 1.3.5 vs 2.3.0
-- **scipy**: 1.10.1 vs 1.15.3
+Note: onnxruntime, ultralytics, and ultralytics-thop are commented out in wmt_requirements.txt
+
+### 🟡 Major Version Gaps Due to Python 3.8 Constraints:
+- **matplotlib**: 3.7.5 vs 3.10.3 (3.10 requires Python >=3.9)
+- **pandas**: 1.3.5 vs 2.3.0 (2.3 requires Python >=3.9)
+- **Pillow**: 6.2.1 vs 11.2.1 (11.x requires Python >=3.9)
+- **numpy**: 1.24.4 vs 2.3.0 (2.x requires Python >=3.10)
+- **imageio**: 2.6.0 vs 2.37.0 (significant gap but functional)
 
 ### 🎯 Current Capabilities:
 **CAN RUN:**
 - ✅ RKNN models via rknn-toolkit-lite2 (BrightSign hardware accelerated!)
 - ✅ Basic OpenCV operations (4.11.0.86)
 - ✅ Matplotlib visualizations (3.7.5)
-- ✅ Basic numpy/scipy computations (older versions)
+- ✅ Basic numpy/scipy computations (1.24.4/1.10.1)
+- ✅ Data analysis with pandas (1.3.5)
+- ✅ Image I/O with imageio and Pillow (older versions)
 
-**CANNOT RUN:**
-- ❌ PyTorch models (no torch/torchvision)
-- ❌ ONNX models (no onnxruntime)
-- ❌ YOLO models via ultralytics (no ultralytics framework)
-- ❌ Advanced image processing (no scikit-image, outdated Pillow)
+**CANNOT RUN WITHOUT ADDITIONAL SETUP:**
+- ❌ PyTorch models (requires manual ARM64 wheel installation)
+- ❌ Advanced scikit-image algorithms (needs older version or build from source)
+- ❌ Modern TIFF file support (needs older tifffile version)
+- ❌ Latest features requiring Python >=3.9 libraries
+
+## Python 3.8 Compatibility Analysis
+
+### 🚫 Incompatible with Desired Versions:
+All the desired major versions of key packages are **incompatible with Python 3.8**:
+- **numpy 2.3.0**: Requires Python >=3.10
+- **pandas 2.3.0**: Requires Python >=3.9
+- **matplotlib 3.10.3**: Requires Python >=3.9
+- **Pillow 11.2.1**: Requires Python >=3.9
+- **scikit-image 0.24.0**: Requires Python >=3.10
+- **tifffile 2025.6.11**: Requires Python >=3.10
+
+### ✅ Workarounds Available:
+1. **PyTorch/torchvision**: ARM64 wheels available, install from PyPI or alternative sources
+2. **tifffile**: Use older version `pip install "tifffile<2023.7.10"`
+3. **tzdata**: Pure Python, should install directly `pip install tzdata`
+4. **scikit-image**: Try older versions (0.19.x) or build from source
 
 ## Key Takeaway
-With rknn-toolkit-lite2 successfully installed, the environment now supports BrightSign's hardware-accelerated inference! However, general-purpose deep learning frameworks (PyTorch, ONNX) remain unavailable due to ARM64 wheel compatibility issues with Python 3.8.
+The BrightSign environment with Python 3.8 has fundamental compatibility limitations with modern CV/ML packages. While 91.5% of packages are installed, they are older versions due to Python 3.8 constraints. The environment is functional for basic CV/ML tasks and RKNN hardware acceleration, but lacks support for cutting-edge features that require Python >=3.9.
