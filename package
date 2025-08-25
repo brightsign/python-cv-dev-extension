@@ -160,7 +160,20 @@ copy_sdk_components() {
         cd - > /dev/null
     fi
 
-    # Copy libraries
+    # Ensure librknnrt.so is present (fallback if not in SDK)
+    if [ ! -f "$sdk_sysroot/usr/lib/librknnrt.so" ]; then
+        warn "librknnrt.so not found in SDK, downloading..."
+        if wget -q -O "$sdk_sysroot/usr/lib/librknnrt.so" \
+            https://github.com/airockchip/rknn-toolkit2/raw/v2.3.2/rknpu2/runtime/Linux/librknn_api/aarch64/librknnrt.so; then
+            success "librknnrt.so downloaded successfully"
+        else
+            error "Failed to download librknnrt.so - NPU functionality may not work"
+        fi
+    else
+        log "librknnrt.so found in SDK"
+    fi
+
+    # Copy libraries (including librknnrt.so)
     log "Copying libraries (this may take a few minutes)..."
     cp -r "$sdk_sysroot/usr/lib" install/usr/
 
@@ -456,6 +469,7 @@ verify_structure() {
         "sh/cleanup-extension"
         "sh/setup_python_env"
         "usr/bin/python3"
+        "usr/lib/librknnrt.so"
     )
 
     for file in "${essential_files[@]}"; do

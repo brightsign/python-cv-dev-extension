@@ -79,7 +79,10 @@
       "Bash(./run_yolox_test.sh:*)",
       "Bash(./brightsign-x86_64-cobra-toolchain-9.1.52.sh:*)",
       "Bash(nm:*)",
-      "Bash(git stash pop:*)"
+      "Bash(git stash pop:*)",
+      "Bash(gh release create:*)",
+      "Bash(gh auth:*)",
+      "Bash(git stash push:*)"
     ],
     "deny": []
   }

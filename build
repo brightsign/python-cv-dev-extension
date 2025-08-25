@@ -229,6 +229,28 @@ if [ $? -eq 0 ]; then
             echo "✅ SDK extracted to ${SCRIPT_DIR}/${SDK_BASENAME}"
             # Clean up the copy in srv
             rm -f "$SDK_FILE"
+            
+            # Also install and patch SDK if requested
+            echo "Installing SDK to ./sdk directory..."
+            if "${SCRIPT_DIR}/${SDK_BASENAME}" -d "${SCRIPT_DIR}/sdk" -y; then
+                echo "✅ SDK installed to ./sdk"
+                
+                # Patch SDK with Rockchip libraries (same as reference project)
+                echo "Adding librknnrt.so to SDK..."
+                cd "${SCRIPT_DIR}/sdk/sysroots/aarch64-oe-linux/usr/lib"
+                if [ ! -f "librknnrt.so" ]; then
+                    if wget -q https://github.com/airockchip/rknn-toolkit2/raw/v2.3.2/rknpu2/runtime/Linux/librknn_api/aarch64/librknnrt.so; then
+                        echo "✅ librknnrt.so downloaded to SDK"
+                    else
+                        echo "⚠️  Failed to download librknnrt.so - continuing anyway"
+                    fi
+                else
+                    echo "✅ librknnrt.so already present in SDK"
+                fi
+                cd "${SCRIPT_DIR}"
+            else
+                echo "⚠️  SDK installation failed - SDK installer is available for manual installation"
+            fi
         else
             echo "❌ SDK file not found in /srv directory"
             echo "    Expected: ${SCRIPT_DIR}/srv/brightsign-x86_64-*-toolchain-*.sh"
