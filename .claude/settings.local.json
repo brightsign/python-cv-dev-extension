@@ -82,7 +82,11 @@
       "Bash(git stash pop:*)",
       "Bash(gh release create:*)",
       "Bash(gh auth:*)",
-      "Bash(git stash push:*)"
+      "Bash(git stash push:*)",
+      "Bash(git push:*)",
+      "Bash(git config:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(ssh:*)"
     ],
     "deny": []
   }
