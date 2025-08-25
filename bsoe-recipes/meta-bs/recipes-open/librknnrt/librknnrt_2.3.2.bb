@@ -1,3 +1,7 @@
+# NOTE: This recipe is currently unused as librknnrt.so is downloaded manually
+# during SDK installation (similar to the reference project approach).
+# The manual download approach is simpler and more reliable for this binary-only library.
+
 SUMMARY = "RKNN Runtime Library for Rockchip NPU"
 DESCRIPTION = "Runtime library for executing RKNN models on Rockchip NPU hardware"
 HOMEPAGE = "https://github.com/airockchip/rknn-toolkit2"

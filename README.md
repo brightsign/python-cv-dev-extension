@@ -6,7 +6,7 @@ Python CV development extension for BrightSign digital signage players (embedded
 
 __Provides__: Python 3.8, OpenCV, PyTorch, ONNX, RKNN toolkit, scientific computing stack and an extensible Python development environment
 
-__Target__: Enterprise edge CV applications (audience analytics, interactive displays, retail analytics)  
+__Target__: Enterprise edge CV applications (audience analytics, interactive displays, retail analytics)
 
 __Key requirement__: x86_64 development host (Apple Silicon incompatible due to RKNN toolchain)
 
@@ -62,11 +62,19 @@ __Time__: 60-90 min | __Prerequisites__: Docker, git, x86_64 host, BrightSign pl
 # Build extension (30-60 min)
 git clone git@github.com:brightsign/python-cv-dev-extension.git
 cd python-cv-dev-extension
+
+```
+
+```bash
 ./setup && ./build --extract-sdk
 
 # Package (5 min)
 ./brightsign-x86_64-cobra-toolchain-*.sh -d ./sdk -y
 ./package
+
+```
+
+```bash
 
 # Deploy & validate
 # Transfer .zip via DWS, install via SSH, then:
@@ -759,7 +767,7 @@ if [ ! -d "sdk/sysroots/aarch64-oe-linux/usr/lib/python3.8/site-packages/torch" 
 fi
 ```
 
-**Note**: The Rockchip RKNN runtime library (`librknnrt.so`) and Python packages are automatically included through BitBake recipes - no manual patching required.
+**Note**: The Rockchip RKNN runtime library (`librknnrt.so`) is automatically downloaded during SDK installation. Python packages are included through BitBake recipes.
 
 ### Docker Image Management
 
@@ -832,7 +840,7 @@ python3 -c "import cv2, pandas, torch, numpy; print('Core packages working')"
 
 The extension provides packages through two mechanisms:
 
-**✅ SDK-Built Packages (Always Available)**
+__✅ SDK-Built Packages (Always Available)__
 These are built into the extension and available immediately after sourcing `setup_python_env`:
 
 ```python
