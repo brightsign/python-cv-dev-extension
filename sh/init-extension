@@ -16,23 +16,34 @@ else
     exit 1
 fi
 
-# Install rknn-toolkit-lite2 wheel if present and not already installed
-RKNN_WHEEL="${EXTENSION_HOME}/usr/lib/python3.8/wheels/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
-if [ -f "$RKNN_WHEEL" ]; then
-    echo "Checking rknn-toolkit-lite2 installation..."
-    if ! python3 -c "import rknnlite" 2>/dev/null; then
-        echo "Installing rknn-toolkit-lite2..."
-        if pip3 install --no-deps "$RKNN_WHEEL"; then
-            echo "  Success: rknn-toolkit-lite2 installed"
+# Create system symlink for librknnrt.so
+# RKNN toolkit hardcodes /usr/lib/librknnrt.so and ignores LD_LIBRARY_PATH
+EXTENSION_LIB="${EXTENSION_HOME}/usr/lib/librknnrt.so"
+SYSTEM_LIB="/usr/lib/librknnrt.so"
+
+if [ -f "$EXTENSION_LIB" ]; then
+    echo "Setting up RKNN runtime library..."
+    if [ ! -e "$SYSTEM_LIB" ]; then
+        echo "  Creating system symlink: $SYSTEM_LIB -> $EXTENSION_LIB"
+        if ln -sf "$EXTENSION_LIB" "$SYSTEM_LIB" 2>/dev/null; then
+            echo "  Success: RKNN runtime library linked"
         else
-            echo "  Warning: Failed to install rknn-toolkit-lite2 (extension will continue)"
-            logger -t "bsext-pydev" "RKNN toolkit installation failed but extension continues"
+            echo "  Warning: Failed to create system symlink (may need manual setup)"
+            logger -t "bsext-pydev" "Failed to create librknnrt.so symlink"
         fi
     else
-        echo "  rknn-toolkit-lite2 already installed"
+        echo "  System library already exists at $SYSTEM_LIB"
     fi
 else
-    echo "RKNN wheel not found, skipping RKNN installation"
+    echo "Warning: Extension librknnrt.so not found at $EXTENSION_LIB"
+fi
+
+# Verify rknn-toolkit-lite2 package is available
+if python3 -c "import rknnlite" 2>/dev/null; then
+    echo "✅ RKNN toolkit package is available"
+else
+    echo "⚠️  Warning: RKNN toolkit package not found in site-packages"
+    logger -t "bsext-pydev" "RKNN toolkit package not available"
 fi
 
 # Run user initialization if configured
