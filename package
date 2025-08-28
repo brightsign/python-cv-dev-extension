@@ -309,8 +309,48 @@ patch_rknn_binaries() {
             current_rpath=$(patchelf --print-rpath "$so_file" 2>/dev/null || echo "<none>")
             log "   New RPATH: $current_rpath"
             
-            # Note: Hardcoded string "/usr/lib/librknnrt.so" remains in binary
-            # but RPATH should take precedence for library resolution
+            # CRITICAL: Replace ALL hardcoded "/usr/lib/" references with "/tmp/lib/"
+            # This is necessary because RKNN checks os.path.exists() before dynamic loading
+            # MUST use same length to avoid binary corruption: "/usr/lib/" (9 chars) → "/tmp/lib/" (9 chars)
+            
+            # Check if file contains any /usr/lib/ references
+            if strings "$so_file" | grep -q "/usr/lib/"; then
+                log "   Found hardcoded /usr/lib/ references - replacing with /tmp/lib/ path"
+                
+                # Create backup for rollback if needed
+                local backup_file="${so_file}.backup"
+                cp "$so_file" "$backup_file"
+                
+                # Replace ALL /usr/lib/ with /tmp/lib/ (both are exactly 9 characters)
+                if sed -i 's|/usr/lib/|/tmp/lib/|g' "$so_file" 2>/dev/null; then
+                    # Verify the replacement worked
+                    local remaining_usr_lib
+                    remaining_usr_lib=$(strings "$so_file" | grep -c "/usr/lib/" || true)
+                    local found_tmp_lib  
+                    found_tmp_lib=$(strings "$so_file" | grep -c "/tmp/lib/" || true)
+                    
+                    if [[ $remaining_usr_lib -eq 0 && $found_tmp_lib -gt 0 ]]; then
+                        success "   ✅ All /usr/lib/ → /tmp/lib/ replacements successful ($found_tmp_lib instances)"
+                        rm "$backup_file"  # Remove backup on success
+                    else
+                        warn "   ⚠️  Replacement may be incomplete: $remaining_usr_lib /usr/lib/ remaining, $found_tmp_lib /tmp/lib/ found"
+                        # Keep backup for debugging
+                    fi
+                    
+                    # Additional verification: Check ELF header integrity
+                    if ! file "$so_file" | grep -q "ELF.*shared object.*ARM aarch64"; then
+                        error "   Binary corruption detected in $(basename "$so_file"). Restoring backup."
+                        mv "$backup_file" "$so_file"
+                        return 1
+                    fi
+                else
+                    warn "   Failed to replace hardcoded paths in $(basename "$so_file")"
+                    # Restore backup on sed failure
+                    mv "$backup_file" "$so_file"
+                fi
+            else
+                log "   No hardcoded /usr/lib/ paths found in $(basename "$so_file")"
+            fi
             
             patched_count=$((patched_count + 1))
         else
@@ -325,10 +365,182 @@ patch_rknn_binaries() {
             warn "Patched RPATH in $patched_count of $so_count RKNN binary files"
         fi
         log "Binaries will now search: \$ORIGIN-relative path to extension lib directory"
+        log "Runtime symlink location: /tmp/lib/librknnrt.so → extension/usr/lib/librknnrt.so"
+        
+        # Create debugging script for hardware validation
+        create_rknn_debug_script "$site_packages"
     else
         warn "No .so files found to patch in rknnlite package"
         return 1
     fi
+}
+
+# Create debugging script for hardware validation
+create_rknn_debug_script() {
+    local site_packages="$1"
+    
+    log "Creating RKNN debugging script for hardware validation..."
+    
+    cat > "install/sh/debug_rknn_fix.sh" << 'DEBUG_EOF'
+#!/bin/bash
+# RKNN Library Loading Debug Script
+# Run this script on player to diagnose RKNN library loading issues
+
+echo "=== RKNN Library Loading Debug Report ==="
+echo "Generated: $(date)"
+echo "Extension Home: ${BRIGHTSIGN_PYTHON_EXTENSION_HOME:-auto-detected}"
+echo ""
+
+# Function to find extension home
+find_extension_home() {
+    if [ -n "$BRIGHTSIGN_PYTHON_EXTENSION_HOME" ]; then
+        echo "$BRIGHTSIGN_PYTHON_EXTENSION_HOME"
+    elif [ -d "/var/volatile/bsext/ext_pydev" ]; then
+        echo "/var/volatile/bsext/ext_pydev"
+    elif [ -d "/usr/local/pydev" ]; then
+        echo "/usr/local/pydev"
+    else
+        echo "ERROR: Extension home not found"
+        exit 1
+    fi
+}
+
+EXTENSION_HOME=$(find_extension_home)
+echo "Detected Extension Home: $EXTENSION_HOME"
+echo ""
+
+# Check 1: Extension library exists
+echo "1. Extension Library Check:"
+EXTENSION_LIB="$EXTENSION_HOME/usr/lib/librknnrt.so"
+if [ -f "$EXTENSION_LIB" ]; then
+    echo "   ✅ Extension library exists: $EXTENSION_LIB"
+    ls -la "$EXTENSION_LIB"
+else
+    echo "   ❌ Extension library missing: $EXTENSION_LIB"
+fi
+echo ""
+
+# Check 2: Symlink exists and is valid
+echo "2. Runtime Symlink Check:"
+SYMLINK_PATH="/tmp/lib/librknnrt.so"
+if [ -L "$SYMLINK_PATH" ]; then
+    echo "   ✅ Symlink exists: $SYMLINK_PATH"
+    ls -la "$SYMLINK_PATH"
+    if [ -f "$SYMLINK_PATH" ]; then
+        echo "   ✅ Symlink target is accessible"
+    else
+        echo "   ❌ Symlink target is broken"
+    fi
+else
+    echo "   ❌ Symlink missing: $SYMLINK_PATH"
+fi
+echo ""
+
+# Check 3: RKNN package installation
+echo "3. RKNN Package Check:"
+SITE_PACKAGES="$EXTENSION_HOME/usr/lib/python3.8/site-packages"
+if [ -d "$SITE_PACKAGES/rknnlite" ]; then
+    echo "   ✅ RKNN package directory exists"
+    echo "   Package contents:"
+    find "$SITE_PACKAGES/rknnlite" -name "*.so" -exec ls -la {} \;
+else
+    echo "   ❌ RKNN package directory missing"
+fi
+echo ""
+
+# Check 4: Binary patching verification
+echo "4. Binary Patching Verification:"
+if [ -f "$SITE_PACKAGES/rknnlite/api/rknn_runtime.cpython-38-aarch64-linux-gnu.so" ]; then
+    BINARY_FILE="$SITE_PACKAGES/rknnlite/api/rknn_runtime.cpython-38-aarch64-linux-gnu.so"
+    echo "   Binary file: $BINARY_FILE"
+    
+    # Check RPATH
+    if command -v patchelf >/dev/null 2>&1; then
+        echo "   RPATH: $(patchelf --print-rpath "$BINARY_FILE" 2>/dev/null || echo 'none')"
+    fi
+    
+    # Check string replacement
+    USR_LIB_COUNT=$(strings "$BINARY_FILE" | grep -c "/usr/lib/" || echo "0")
+    TMP_LIB_COUNT=$(strings "$BINARY_FILE" | grep -c "/tmp/lib/" || echo "0") 
+    echo "   Hardcoded /usr/lib/ references: $USR_LIB_COUNT (should be 0)"
+    echo "   Hardcoded /tmp/lib/ references: $TMP_LIB_COUNT (should be >0)"
+    
+    if [ "$USR_LIB_COUNT" -eq 0 ] && [ "$TMP_LIB_COUNT" -gt 0 ]; then
+        echo "   ✅ String replacement successful"
+    else
+        echo "   ❌ String replacement incomplete or failed"
+    fi
+else
+    echo "   ❌ RKNN runtime binary not found"
+fi
+echo ""
+
+# Check 5: Python environment test
+echo "5. Python Environment Test:"
+export PYTHONPATH="$SITE_PACKAGES:$PYTHONPATH"
+export LD_LIBRARY_PATH="$EXTENSION_HOME/usr/lib:$LD_LIBRARY_PATH"
+
+if python3 -c "import rknnlite; print('✅ RKNN import successful')" 2>/dev/null; then
+    echo "   ✅ RKNN package imports successfully"
+else
+    echo "   ❌ RKNN import failed"
+fi
+
+if python3 -c "from rknnlite.api import RKNNLite; print('✅ RKNNLite class available')" 2>/dev/null; then
+    echo "   ✅ RKNNLite class available"
+else
+    echo "   ❌ RKNNLite class unavailable"
+fi
+echo ""
+
+# Check 6: Runtime initialization test
+echo "6. Runtime Initialization Test:"
+python3 << 'PYTHON_EOF'
+import sys
+try:
+    from rknnlite.api import RKNNLite
+    print("   ✅ Import successful")
+    
+    rknn = RKNNLite()
+    print("   ✅ Object creation successful")
+    
+    # This is where the failure typically occurs
+    # We'll capture any exception details
+    try:
+        # Note: This will fail without actual model file, but shows library loading status
+        rknn.init_runtime()
+        print("   ✅ Runtime initialization successful (unexpected but good!)")
+    except Exception as e:
+        error_msg = str(e)
+        if "Can not find dynamic library" in error_msg:
+            if "/tmp/lib/" in error_msg:
+                print("   ❌ Library loading failed - string replacement worked but symlink/library issue")
+                print(f"       Error: {error_msg}")
+            else:
+                print("   ❌ Library loading failed - string replacement didn't work")
+                print(f"       Error: {error_msg}")
+        else:
+            print("   ⚠️  Different runtime error (may be expected without model file):")
+            print(f"       Error: {error_msg}")
+            
+except ImportError as e:
+    print(f"   ❌ Import failed: {e}")
+except Exception as e:
+    print(f"   ❌ Unexpected error: {e}")
+PYTHON_EOF
+
+echo ""
+echo "=== Debug Report Complete ==="
+echo "If RKNN initialization is still failing, please check:"
+echo "1. All symlinks are properly created"
+echo "2. Library file has correct permissions"
+echo "3. No missing dependencies in library file"
+echo "4. Architecture compatibility (should be ARM64/aarch64)"
+DEBUG_EOF
+    
+    chmod +x "install/sh/debug_rknn_fix.sh"
+    success "Created RKNN debug script: install/sh/debug_rknn_fix.sh"
+    log "Run this script on player to diagnose any remaining issues"
 }
 
 # Copy YOLOX example if requested

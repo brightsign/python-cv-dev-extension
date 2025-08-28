@@ -202,7 +202,15 @@ setup_rknn_libraries() {
     # Set environment variables that RKNN might use
     export RKNN_LIB_PATH="$extension_home/usr/lib"
     
-    # Create system lib64 symlinks if writable area exists
+    # CRITICAL: Create symlink in /tmp/lib for patched RKNN binaries
+    # RKNN binaries have been patched to look for "/tmp/lib/librknnrt.so" (same length as "/usr/lib/librknnrt.so")
+    mkdir -p "/tmp/lib" 2>/dev/null || true
+    if [ -d "/tmp/lib" ]; then
+        ln -sf "$rknn_lib" "/tmp/lib/librknnrt.so" 2>/dev/null || true
+        log_verbose "Created symlink: /tmp/lib/librknnrt.so -> $rknn_lib"
+    fi
+    
+    # Also create system lib64 symlinks if writable area exists (for compatibility)
     if [ -w "/usr/local" ]; then
         mkdir -p "/usr/local/lib64" 2>/dev/null || true
         if [ -d "/usr/local/lib64" ]; then
