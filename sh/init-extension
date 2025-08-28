@@ -16,17 +16,20 @@ else
     exit 1
 fi
 
-# Create system symlink for librknnrt.so
-# RKNN toolkit hardcodes /usr/lib/librknnrt.so and ignores LD_LIBRARY_PATH
+# Create system symlink for librknnrt.so in writable location
+# RKNN binaries have been patched to search /usr/local/lib first via RPATH
 EXTENSION_LIB="${EXTENSION_HOME}/usr/lib/librknnrt.so"
-SYSTEM_LIB="/usr/lib/librknnrt.so"
+SYSTEM_LIB="/usr/local/lib/librknnrt.so"
 
 if [ -f "$EXTENSION_LIB" ]; then
     echo "Setting up RKNN runtime library..."
+    # Ensure /usr/local/lib directory exists
+    mkdir -p "/usr/local/lib" 2>/dev/null || true
+    
     if [ ! -e "$SYSTEM_LIB" ]; then
         echo "  Creating system symlink: $SYSTEM_LIB -> $EXTENSION_LIB"
         if ln -sf "$EXTENSION_LIB" "$SYSTEM_LIB" 2>/dev/null; then
-            echo "  Success: RKNN runtime library linked"
+            echo "  Success: RKNN runtime library linked (patched binaries will find it)"
         else
             echo "  Warning: Failed to create system symlink (may need manual setup)"
             logger -t "bsext-pydev" "Failed to create librknnrt.so symlink"

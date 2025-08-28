@@ -35,7 +35,7 @@ __Key requirement__: x86_64 development host (Apple Silicon incompatible due to 
 
 - x86_64 architecture (Intel/AMD only - Apple Silicon incompatible)
 - 16GB+ RAM, 50GB+ free space
-- Docker, git, cmake
+- Docker, git, cmake, patchelf (for RKNN library patching)
 
 **Target Device**:
 
@@ -45,7 +45,8 @@ __Key requirement__: x86_64 development host (Apple Silicon incompatible due to 
 **Setup**:
 
 ```bash
-sudo apt-get update && apt-get install -y docker.io git cmake
+sudo apt-get update && apt-get install -y docker.io git cmake patchelf
+# Alternative: pip3 install patchelf
 uname -m  # Verify: x86_64
 ```
 

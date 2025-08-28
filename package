@@ -223,6 +223,10 @@ copy_rknn_wheel() {
         if [[ -d "$temp_dir/rknnlite" ]]; then
             cp -r "$temp_dir/rknnlite" "$site_packages/"
             success "rknnlite package installed"
+            
+            # *** NEW: PATCH BINARY RPATH ***
+            patch_rknn_binaries "$site_packages"
+            
         else
             error "rknnlite package directory not found in wheel"
             rm -rf "$temp_dir"
@@ -240,10 +244,100 @@ copy_rknn_wheel() {
         # Cleanup temporary directory
         rm -rf "$temp_dir"
         
-        success "rknn-toolkit-lite2 successfully installed to site-packages"
+        success "rknn-toolkit-lite2 successfully installed and patched to site-packages"
     else
         warn "rknn-toolkit-lite2 wheel not found at: $wheel_path"
         warn "Run ./setup first to clone rknn-toolkit2"
+        return 1
+    fi
+}
+
+# NEW FUNCTION: Patch RKNN binary files to search multiple library paths
+patch_rknn_binaries() {
+    local site_packages="$1"
+    
+    log "Patching RKNN binary RPATH to search multiple library locations..."
+    
+    # Ensure patchelf is available
+    if ! command -v patchelf >/dev/null 2>&1; then
+        log "patchelf not found. Installing patchelf..."
+        # Try to install patchelf (adjust based on build environment)
+        if command -v apt-get >/dev/null 2>&1; then
+            apt-get update -qq && apt-get install -y patchelf >/dev/null 2>&1 || {
+                warn "Cannot install patchelf via apt-get. Trying pip..."
+                pip3 install patchelf >/dev/null 2>&1 || {
+                    error "Cannot install patchelf. Binary patching will be skipped."
+                    return 1
+                }
+            }
+        elif command -v pip3 >/dev/null 2>&1; then
+            pip3 install patchelf >/dev/null 2>&1 || {
+                error "Cannot install patchelf via pip. Binary patching will be skipped."
+                return 1
+            }
+        else
+            error "Neither apt-get nor pip3 found. Cannot install patchelf."
+            return 1
+        fi
+        success "patchelf installed successfully"
+    else
+        log "patchelf found: $(patchelf --version 2>/dev/null || echo 'version unknown')"
+    fi
+    
+    # Find and patch all .so files in the rknnlite package
+    local so_count=0
+    local patched_count=0
+    
+    if [[ ! -d "$site_packages/rknnlite" ]]; then
+        error "rknnlite package not found at: $site_packages/rknnlite"
+        return 1
+    fi
+    
+    while IFS= read -r -d '' so_file; do
+        log "Patching RPATH in: $(basename "$so_file")"
+        so_count=$((so_count + 1))
+        
+        # Set new RPATH with multiple search locations
+        # Priority order: /usr/local/lib (writable), extension lib, relative path
+        local new_rpath="/usr/local/lib:/var/volatile/bsext/ext_pydev/usr/lib:\$ORIGIN/../../../lib"
+        
+        if patchelf --set-rpath "$new_rpath" "$so_file" 2>/dev/null; then
+            success "Successfully patched RPATH in $(basename "$so_file")"
+            
+            # Verify the change
+            local current_rpath
+            current_rpath=$(patchelf --print-rpath "$so_file" 2>/dev/null || echo "<none>")
+            log "   New RPATH: $current_rpath"
+            
+            # CRITICAL: Replace hardcoded string "/usr/lib/librknnrt.so" with "/usr/local/lib/librknnrt.so"
+            # This is necessary because some RKNN binaries have the path hardcoded as a string literal
+            if strings "$so_file" | grep -q "/usr/lib/librknnrt.so"; then
+                log "   Found hardcoded /usr/lib/librknnrt.so string - replacing with /usr/local/lib path"
+                
+                # Use sed to replace the hardcoded string in the binary
+                # We need to maintain the same string length, so pad with null byte
+                if sed -i 's|/usr/lib/librknnrt\.so|/usr/local/lib/librknn\x00|g' "$so_file" 2>/dev/null; then
+                    success "   Replaced hardcoded library path in $(basename "$so_file")"
+                else
+                    warn "   Failed to replace hardcoded path in $(basename "$so_file")"
+                fi
+            fi
+            
+            patched_count=$((patched_count + 1))
+        else
+            warn "Failed to patch RPATH in $(basename "$so_file")"
+        fi
+    done < <(find "$site_packages/rknnlite" -name "*.so" -type f -print0)
+    
+    if [[ $so_count -gt 0 ]]; then
+        if [[ $patched_count -eq $so_count ]]; then
+            success "Patched RPATH in all $patched_count RKNN binary files"
+        else
+            warn "Patched RPATH in $patched_count of $so_count RKNN binary files"
+        fi
+        log "Binaries will now search: /usr/local/lib, extension lib, and relative paths"
+    else
+        warn "No .so files found to patch in rknnlite package"
         return 1
     fi
 }

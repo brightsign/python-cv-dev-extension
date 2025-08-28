@@ -165,7 +165,7 @@ setup_python_environment() {
     log_verbose "Python environment setup complete"
 }
 
-# Setup RKNN runtime library paths and symlinks
+# Setup RKNN runtime library paths and preloading
 setup_rknn_libraries() {
     local extension_home="$1"
     local rknn_lib="$extension_home/usr/lib/librknnrt.so"
@@ -177,6 +177,11 @@ setup_rknn_libraries() {
     fi
     
     log_verbose "Setting up RKNN runtime libraries"
+    
+    # CRITICAL FIX: Use LD_PRELOAD to force-load librknnrt.so before RKNN initialization
+    # This bypasses RKNN's hardcoded path checking that expects library in /usr/lib/
+    export LD_PRELOAD="$rknn_lib:$LD_PRELOAD"
+    log_verbose "Added librknnrt.so to LD_PRELOAD: $rknn_lib"
     
     # Create lib64 directory in extension for RKNN to find libraries
     mkdir -p "$extension_home/lib64"
@@ -215,6 +220,7 @@ setup_rknn_libraries() {
     
     echo "RKNN Runtime library setup complete."
     log_verbose "RKNN library paths: $LD_LIBRARY_PATH"
+    log_verbose "RKNN preload: $LD_PRELOAD"
 }
 
 # Print helpful information after setup
