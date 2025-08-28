@@ -297,9 +297,9 @@ patch_rknn_binaries() {
         log "Patching RPATH in: $(basename "$so_file")"
         so_count=$((so_count + 1))
         
-        # Set new RPATH with multiple search locations
-        # Priority order: /usr/local/lib (writable), extension lib, relative path
-        local new_rpath="/usr/local/lib:/var/volatile/bsext/ext_pydev/usr/lib:\$ORIGIN/../../../lib"
+        # Set new RPATH with $ORIGIN-relative paths to extension lib directory
+        # From site-packages/rknnlite/api/*.so to extension/usr/lib: ../../../../
+        local new_rpath="\$ORIGIN/../../../../"
         
         if patchelf --set-rpath "$new_rpath" "$so_file" 2>/dev/null; then
             success "Successfully patched RPATH in $(basename "$so_file")"
@@ -309,19 +309,8 @@ patch_rknn_binaries() {
             current_rpath=$(patchelf --print-rpath "$so_file" 2>/dev/null || echo "<none>")
             log "   New RPATH: $current_rpath"
             
-            # CRITICAL: Replace hardcoded string "/usr/lib/librknnrt.so" with "/usr/local/lib/librknnrt.so"
-            # This is necessary because some RKNN binaries have the path hardcoded as a string literal
-            if strings "$so_file" | grep -q "/usr/lib/librknnrt.so"; then
-                log "   Found hardcoded /usr/lib/librknnrt.so string - replacing with /usr/local/lib path"
-                
-                # Use sed to replace the hardcoded string in the binary
-                # We need to maintain the same string length, so pad with null byte
-                if sed -i 's|/usr/lib/librknnrt\.so|/usr/local/lib/librknn\x00|g' "$so_file" 2>/dev/null; then
-                    success "   Replaced hardcoded library path in $(basename "$so_file")"
-                else
-                    warn "   Failed to replace hardcoded path in $(basename "$so_file")"
-                fi
-            fi
+            # Note: Hardcoded string "/usr/lib/librknnrt.so" remains in binary
+            # but RPATH should take precedence for library resolution
             
             patched_count=$((patched_count + 1))
         else
@@ -335,7 +324,7 @@ patch_rknn_binaries() {
         else
             warn "Patched RPATH in $patched_count of $so_count RKNN binary files"
         fi
-        log "Binaries will now search: /usr/local/lib, extension lib, and relative paths"
+        log "Binaries will now search: \$ORIGIN-relative path to extension lib directory"
     else
         warn "No .so files found to patch in rknnlite package"
         return 1

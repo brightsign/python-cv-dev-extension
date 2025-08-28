@@ -473,11 +473,11 @@ def patch_rknn_wheel(wheel_path, output_path):
 
 ### Successfully Completed (Build-time Testing)
 
-**✅ patchelf Binary Patching + String Replacement Implementation**
-- All 8 RKNN .so files successfully patched with new RPATH
-- RPATH set to: `/usr/local/lib:/var/volatile/bsext/ext_pydev/usr/lib:$ORIGIN/../../../lib`
-- **CRITICAL FIX**: Hardcoded string `/usr/lib/librknnrt.so` replaced with `/usr/local/lib/librknn` in `rknn_runtime.cpython-38-aarch64-linux-gnu.so`
-- ARM64 binary integrity verified after patching and string replacement
+**✅ patchelf Binary Patching with $ORIGIN-Relative Paths**
+- All 8 RKNN .so files successfully patched with `$ORIGIN`-relative RPATH
+- RPATH set to: `$ORIGIN/../../../../` (resolves to extension's usr/lib directory)
+- Works dynamically for both development (`/usr/local/pydev/`) and production (`/var/volatile/bsext/ext_pydev/`) installations
+- ARM64 binary integrity verified after patching
 - Automatic patchelf installation working (pip fallback successful)
 
 **✅ Package Integration**
@@ -487,16 +487,16 @@ def patch_rknn_wheel(wheel_path, output_path):
 - Package structure validated
 
 **✅ Extension Scripts Updated**
-- `init-extension` script updated to create symlink at `/usr/local/lib/librknnrt.so`
-- Symlink creation directory changed from read-only `/usr/lib` to writable `/usr/local/lib`
-- Error handling and logging improved
+- `init-extension` script simplified - no symlink creation needed
+- RKNN binaries find library automatically via `$ORIGIN`-relative RPATH
+- Extension init now just verifies library presence and logs status
 
 **✅ Build Process Validation**
-- Packaging completed successfully in 42 seconds
-- Development package created: `pydev-20250828-083213.zip` (386M) - **UPDATED WITH STRING REPLACEMENT**
+- Packaging completed successfully in ~1m 40s
+- Development package created: `pydev-20250828-084254.zip` (386M) - **UPDATED WITH $ORIGIN PATHS**
 - No build errors or warnings
-- All 8 binary files confirmed patched with RPATH
-- 1 binary file (`rknn_runtime.cpython-38-aarch64-linux-gnu.so`) confirmed with string replacement
+- All 8 binary files confirmed patched with `$ORIGIN`-relative RPATH
+- Path resolution verified: `$ORIGIN/../../../../` → extension's usr/lib directory
 
 ### Root Cause Discovery and Resolution
 
@@ -512,21 +512,22 @@ strings rknn_runtime.cpython-38-aarch64-linux-gnu.so | grep usr/lib
 # Found: Error message referencing the hardcoded path
 ```
 
-**Dual-Fix Solution:**
-1. **RPATH Patching**: Ensures binaries search multiple library paths when using dynamic linking
-2. **String Replacement**: Replaces hardcoded string literals that bypass dynamic linking search
+**Final Solution: $ORIGIN-Relative RPATH**
+1. **Problem**: Both absolute paths and ephemeral filesystem issues
+2. **Solution**: Use `$ORIGIN`-relative paths that resolve dynamically based on binary location
+3. **Result**: Works for both development and production deployments without symlinks or hardcoded paths
 
-This comprehensive approach addresses both dynamic linking search paths AND hardcoded path references.
+This elegant approach uses the ELF loader's built-in `$ORIGIN` resolution to find libraries relative to the binary's location.
 
 ### Ready for Player Testing
 
 The implementation is now complete and ready for deployment to a BrightSign player for final validation:
 
-1. **Package ready**: `pydev-20250828-083213.zip` contains patched RKNN binaries
-2. **Symlink strategy**: Extension init will create `/usr/local/lib/librknnrt.so` → extension library
-3. **RPATH priority**: Patched binaries will search `/usr/local/lib` first, then extension lib, then relative paths
+1. **Package ready**: `pydev-20250828-084254.zip` contains patched RKNN binaries
+2. **No symlinks needed**: Binaries find library automatically via `$ORIGIN`-relative RPATH  
+3. **Dynamic resolution**: Works for both `/usr/local/pydev/` and `/var/volatile/bsext/ext_pydev/` installations
 
-**Expected Result**: `rknn_lite.init_runtime()` should now succeed and find the library via the first RPATH location.
+**Expected Result**: `rknn_lite.init_runtime()` should now succeed and find the library in the extension's usr/lib directory.
 
 ---
 

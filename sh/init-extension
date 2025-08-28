@@ -16,29 +16,16 @@ else
     exit 1
 fi
 
-# Create system symlink for librknnrt.so in writable location
-# RKNN binaries have been patched to search /usr/local/lib first via RPATH
+# Verify RKNN runtime library is available
+# RKNN binaries have been patched with $ORIGIN-relative RPATH to find library automatically
 EXTENSION_LIB="${EXTENSION_HOME}/usr/lib/librknnrt.so"
-SYSTEM_LIB="/usr/local/lib/librknnrt.so"
 
 if [ -f "$EXTENSION_LIB" ]; then
-    echo "Setting up RKNN runtime library..."
-    # Ensure /usr/local/lib directory exists
-    mkdir -p "/usr/local/lib" 2>/dev/null || true
-    
-    if [ ! -e "$SYSTEM_LIB" ]; then
-        echo "  Creating system symlink: $SYSTEM_LIB -> $EXTENSION_LIB"
-        if ln -sf "$EXTENSION_LIB" "$SYSTEM_LIB" 2>/dev/null; then
-            echo "  Success: RKNN runtime library linked (patched binaries will find it)"
-        else
-            echo "  Warning: Failed to create system symlink (may need manual setup)"
-            logger -t "bsext-pydev" "Failed to create librknnrt.so symlink"
-        fi
-    else
-        echo "  System library already exists at $SYSTEM_LIB"
-    fi
+    echo "✅ RKNN runtime library found at: $EXTENSION_LIB"
+    echo "  RKNN binaries will find it via \$ORIGIN-relative RPATH (no symlinks needed)"
 else
-    echo "Warning: Extension librknnrt.so not found at $EXTENSION_LIB"
+    echo "⚠️  Warning: Extension librknnrt.so not found at $EXTENSION_LIB"
+    logger -t "bsext-pydev" "RKNN runtime library not found"
 fi
 
 # Verify rknn-toolkit-lite2 package is available
