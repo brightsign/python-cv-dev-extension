@@ -202,18 +202,49 @@ add_extension_scripts() {
 
 # Copy rknn-toolkit-lite2 wheel file
 copy_rknn_wheel() {
-    log "Copying rknn-toolkit-lite2 wheel file..."
+    log "Installing rknn-toolkit-lite2 into extension site-packages..."
     
     local wheel_path="toolkit/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
     
     if [[ -f "$wheel_path" ]]; then
-        # Create wheels directory
-        mkdir -p install/usr/lib/python3.8/wheels
-        cp "$wheel_path" install/usr/lib/python3.8/wheels/
-        success "rknn-toolkit-lite2 wheel copied"
+        # Create temporary directory for extraction
+        local temp_dir=$(mktemp -d)
+        
+        # Extract wheel contents (wheel is just a ZIP file)
+        log "Extracting wheel contents..."
+        unzip -q "$wheel_path" -d "$temp_dir"
+        
+        # Create site-packages directory
+        local site_packages="install/usr/lib/python3.8/site-packages"
+        mkdir -p "$site_packages"
+        
+        # Copy package directory and metadata to site-packages
+        log "Installing rknnlite package..."
+        if [[ -d "$temp_dir/rknnlite" ]]; then
+            cp -r "$temp_dir/rknnlite" "$site_packages/"
+            success "rknnlite package installed"
+        else
+            error "rknnlite package directory not found in wheel"
+            rm -rf "$temp_dir"
+            return 1
+        fi
+        
+        log "Installing package metadata..."
+        if [[ -d "$temp_dir/rknn_toolkit_lite2-2.3.2.dist-info" ]]; then
+            cp -r "$temp_dir/rknn_toolkit_lite2-2.3.2.dist-info" "$site_packages/"
+            success "Package metadata installed"
+        else
+            warn "Package metadata directory not found - package may still work"
+        fi
+        
+        # Cleanup temporary directory
+        rm -rf "$temp_dir"
+        
+        success "rknn-toolkit-lite2 successfully installed to site-packages"
     else
         warn "rknn-toolkit-lite2 wheel not found at: $wheel_path"
         warn "Run ./setup first to clone rknn-toolkit2"
+        return 1
     fi
 }
 
