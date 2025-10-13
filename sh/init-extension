@@ -16,30 +16,13 @@ else
     exit 1
 fi
 
-# Setup RKNN runtime library symlink for patched binaries
-# RKNN binaries have been patched to look for /tmp/lib/librknnrt.so (same length as original path)
-EXTENSION_LIB="${EXTENSION_HOME}/usr/lib/librknnrt.so"
-SYSTEM_LIB="/tmp/lib/librknnrt.so"
-
-if [ -f "$EXTENSION_LIB" ]; then
-    echo "Setting up RKNN runtime library..."
-    # Ensure /tmp/lib directory exists (always writable)
-    mkdir -p "/tmp/lib" 2>/dev/null || true
-    
-    if [ ! -e "$SYSTEM_LIB" ]; then
-        echo "  Creating symlink: $SYSTEM_LIB -> $EXTENSION_LIB"
-        if ln -sf "$EXTENSION_LIB" "$SYSTEM_LIB" 2>/dev/null; then
-            echo "  ✅ RKNN runtime library linked (patched binaries will find it)"
-        else
-            echo "  ⚠️  Warning: Failed to create symlink"
-            logger -t "bsext-pydev" "Failed to create librknnrt.so symlink"
-        fi
-    else
-        echo "  ✅ RKNN runtime library already linked at $SYSTEM_LIB"
-    fi
+# Verify RKNN runtime library is available (OS 9.1.79.3+ provides this)
+if [ -f "/usr/lib/librknnrt.so" ]; then
+    echo "✅ RKNN runtime library found at /usr/lib/librknnrt.so (OS 9.1.79.3+)"
 else
-    echo "⚠️  Warning: Extension librknnrt.so not found at $EXTENSION_LIB"
-    logger -t "bsext-pydev" "RKNN runtime library not found"
+    echo "⚠️  Warning: RKNN runtime library not found at /usr/lib/librknnrt.so"
+    echo "   Requires BrightSign OS 9.1.79.3 or later"
+    logger -t "bsext-pydev" "RKNN runtime library not found - OS 9.1.79.3+ required"
 fi
 
 # Verify rknn-toolkit-lite2 package is available
