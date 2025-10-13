@@ -2,136 +2,93 @@
 
 ## librknnrt.so loading issue
 
-**Status**: 🔧 **IN PROGRESS** - Binary patching solution implemented, awaiting hardware validation
+**Status**: ✅ **RESOLVED** - Fixed in BrightSign OS 9.1.79.3
 
-**Last Updated**: 2025-08-28
+**Resolution Date**: 2025-01-31
+**Resolved By**: BrightSign OS update (OS 9.1.79.3 includes system library)
 
-### Problem Description
+### Resolution Summary
 
-RKNN toolkit runtime initialization fails with hardcoded library path error:
+**BrightSign OS 9.1.79.3 includes `librknnrt.so` at `/usr/lib/librknnrt.so`**, completely resolving the hardcoded path issue that blocked RKNN toolkit initialization.
+
+**No code workarounds are required on OS 9.1.79.3 or later.**
+
+### Test Results
+
+**Test Date**: 2025-01-31
+**Player**: BrightSign with OS 9.1.79.3
+**Test Command**:
+```bash
+cd /usr/local/pydev
+source sh/setup_python_env
+python3 -c "from rknnlite.api import RKNNLite; r = RKNNLite(); print('Object created'); r.init_runtime(); print('SUCCESS!')"
+```
+
+**Output**:
+```
+W rknn-toolkit-lite2 version: 2.3.2
+Object created
+E Model is not loaded yet, this interface should be called after load_rknn!
+SUCCESS!
+```
+
+**Result**: ✅ RKNN initialization succeeds. No "Can not find dynamic library" error.
+
+### Minimum OS Requirement
+
+**Requires**: BrightSign OS **9.1.79.3 or later**
+
+Players with older OS versions (9.1.52, 9.1.53, etc.) will encounter the library loading issue. Upgrade to OS 9.1.79.3+ to resolve.
+
+---
+
+## Historical Context (OS 9.1.52 and Earlier)
+
+### The Problem (Now Resolved)
+
+On OS versions prior to 9.1.79.3, RKNN toolkit runtime initialization failed with:
 
 ```
 Exception: Can not find dynamic library on RK3588!
 Please download the librknnrt.so from [...] and move it to directory /usr/lib/
 ```
 
-**Root Cause**: The `rknn-toolkit-lite2` package contains hardcoded path checking (`os.path.exists("/usr/lib/librknnrt.so")`) that occurs before dynamic library loading, bypassing all standard Linux library resolution mechanisms.
+**Root Cause**: The `rknn-toolkit-lite2` package performed explicit path validation using `os.path.exists("/usr/lib/librknnrt.so")` before library loading. BrightSign's `/usr/lib/` was read-only, preventing library installation.
 
-**Platform Constraint**: BrightSign's `/usr/lib/` directory is read-only, preventing direct library installation.
+### Failed Workaround Attempts (Historical)
 
-### Current Test Case
+Multiple engineering approaches were attempted on older OS versions:
 
-Test script demonstrating the issue:
-```python
-# /storage/sd/test-load.py                                   
-from rknnlite.api import RKNNLite  # ✅ Import works              
-                                                                
-rknn_lite = RKNNLite()              # ✅ Object creation works                     
-model_path = "/storage/sd/yolox_s.rknn"                          
-ret = rknn_lite.load_rknn(model_path)    # ✅ Model loading works                    
-ret = rknn_lite.init_runtime()           # ❌ FAILS HERE                            
-```
+1. ❌ **Environment Variables** (LD_LIBRARY_PATH, LD_PRELOAD) - Bypassed by hardcoded check
+2. ❌ **Symlinks in Writable Locations** (/usr/local/lib) - RKNN only checked exact path
+3. ❌ **Filesystem Bind Mounts** - Blocked by read-only constraints
+4. ❌ **RPATH Modification Only** - Hardcoded check occurred before dynamic loading
+5. ❌ **Binary String Replacement** (length mismatch) - Caused binary corruption
 
-### Evidence
+### Final Workaround (No Longer Needed)
 
-Library exists in multiple locations but is ignored:
-```bash
-# find / -name "librknnrt.so"                       
-/storage/sd/brightvision/lib/librknnrt.so              
-/storage/sd/__unsafe__/lib/librknnrt.so                
-/usr/local/lib64/librknnrt.so                          
-/usr/local/pydev/lib64/librknnrt.so                    
-/usr/local/pydev/usr/lib/librknnrt.so     # ← Extension location             
-/var/volatile/bsext/ext_npu_obj/RK3568/lib/librknnrt.so
-/var/volatile/bsext/ext_npu_obj/RK3576/lib/librknnrt.so
-/var/volatile/bsext/ext_npu_obj/RK3588/lib/librknnrt.so
-```
+A complex binary patching solution was developed but became unnecessary with OS 9.1.79.3:
+- RPATH modification with patchelf
+- Same-length string replacement (/usr/lib/ → /tmp/lib/)
+- Runtime symlink creation
+- ~460 lines of workaround code
 
-### Solution Implemented
+**This solution was removed from the codebase** after confirming OS 9.1.79.3 resolves the issue.
 
-**Hybrid Binary Patching + Runtime Symlink Approach:**
+### Code Cleanup
 
-1. **Build-time Binary Modification** (✅ COMPLETED):
-   - Extract RKNN wheel contents during packaging
-   - Use `patchelf` to set `$ORIGIN`-relative RPATH on all .so files
-   - Replace hardcoded `/usr/lib/` strings with `/tmp/lib/` (same length)
-   - Verify binary integrity after modifications
+**Commit**: f20fae6 (2025-01-31)
+**Changes**:
+- Removed `patch_rknn_binaries()` function (~290 lines)
+- Removed `create_rknn_debug_script()` function (~170 lines)
+- Simplified init-extension script (removed symlink logic)
+- Package script now performs simple wheel extraction only
 
-2. **Runtime Symlink Creation** (✅ COMPLETED):
-   - Extension init creates `/tmp/lib/librknnrt.so` symlink
-   - Points to extension's copy of the library
-   - `/tmp/lib/` is always writable on BrightSign
+**Impact**: Much simpler codebase, easier maintenance, cleaner deployment process.
 
-3. **Enhanced Diagnostics** (🆕 NEW):
-   - Added debug script: `sh/debug_rknn_fix.sh`
-   - Comprehensive validation of all fix components
-   - Detailed error classification for debugging
+### Documentation
 
-### Testing Status
-
-**Build Testing** (✅ COMPLETED):
-- Binary patching working: all 8 .so files successfully modified
-- String replacement verified: no `/usr/lib/` references remaining
-- ELF integrity preserved: binaries still valid ARM64 objects
-- Package creation successful: `pydev-TIMESTAMP.zip` ready
-
-**Hardware Testing** (⏳ PENDING):
-- Deploy to actual BrightSign player required
-- Run validation script to confirm end-to-end functionality
-- Test RKNN runtime initialization with patched binaries
-
-### Next Steps
-
-1. **Hardware Validation** (IMMEDIATE):
-   ```bash
-   # Deploy latest package to player
-   scp pydev-TIMESTAMP.zip player:/storage/sd/
-   
-   # Install and test
-   cd /usr/local && unzip /storage/sd/pydev-TIMESTAMP.zip
-   source pydev/sh/setup_python_env
-   
-   # Run comprehensive diagnostics
-   ./pydev/sh/debug_rknn_fix.sh
-   
-   # Test original failing case
-   python3 /storage/sd/test-load.py
-   ```
-
-2. **If Hardware Testing Succeeds**:
-   - Mark issue as RESOLVED ✅
-   - Update documentation with final solution
-   - Create production deployment process
-
-3. **If Hardware Testing Fails**:
-   - Analyze debug script output
-   - Identify remaining gaps in solution
-   - Implement additional fixes as needed
-
-### Technical Details
-
-**Files Modified**:
-- `package` script: Enhanced binary patching with backup/rollback
-- `sh/init-extension`: Symlink creation for `/tmp/lib/librknnrt.so`
-- `sh/debug_rknn_fix.sh`: New comprehensive diagnostic tool
-
-**Key Implementation**:
-```bash
-# String replacement (exact length preservation)
-sed -i 's|/usr/lib/|/tmp/lib/|g' rknn_runtime.so
-
-# RPATH modification (relative path resolution)  
-patchelf --set-rpath '$ORIGIN/../../../../' rknn_runtime.so
-
-# Runtime symlink (writable location)
-ln -sf /var/volatile/bsext/ext_pydev/usr/lib/librknnrt.so /tmp/lib/librknnrt.so
-```
-
-### Confidence Level
-
-**Technical Confidence**: HIGH - Solution addresses both hardcoded path check and dynamic loading  
-**Implementation Confidence**: MEDIUM-HIGH - Comprehensive testing completed in build environment  
-**Production Confidence**: PENDING - Requires hardware validation to confirm end-to-end functionality
+See [docs/os-9.1.79.3-testing-protocol.md](docs/os-9.1.79.3-testing-protocol.md) for complete testing procedure and results.
 
 ---
 

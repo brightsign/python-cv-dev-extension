@@ -23,9 +23,11 @@ __Key requirement__: x86_64 development host (Apple Silicon incompatible due to 
 
 | player | minimum OS Version required |
 | --- | --- |
-| XT-5: XT1145, XT2145 | [9.1.52](https://brightsignbiz.s3.amazonaws.com/firmware/xd5/9.1/9.1.52/brightsign-xd5-update-9.1.52.zip) |
-| _Firebird_ (in process) | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
-| _LS-5: LS445_ (in process) | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
+| XT-5: XT1145, XT2145 | [9.1.79.3](https://brightsignbiz.s3.amazonaws.com/firmware/xd5/9.1/9.1.79.3/brightsign-xd5-update-9.1.79.3.zip) |
+| _Firebird_ (in process) | 9.1.79.3+ required |
+| _LS-5: LS445_ (in process) | 9.1.79.3+ required |
+
+**IMPORTANT**: OS 9.1.79.3 or later is **required** for RKNN toolkit functionality. This OS version includes the system `librknnrt.so` library that RKNN toolkit expects at `/usr/lib/librknnrt.so`. Earlier OS versions will encounter RKNN initialization failures.
 
 **NOTE:** This guide is written **ONLY** for the XT-5. Supporting Firebird or LS-5 is a straightforward exercise for the motivated reader.
 
@@ -35,12 +37,12 @@ __Key requirement__: x86_64 development host (Apple Silicon incompatible due to 
 
 - x86_64 architecture (Intel/AMD only - Apple Silicon incompatible)
 - 16GB+ RAM, 50GB+ free space
-- Docker, git, cmake, patchelf (for RKNN library patching)
+- Docker, git, cmake
 
 **Target Device**:
 
 - BrightSign Series 5 (XT-5, Firebird, LS-5)
-- Firmware 9.1.52+, unsecured, SSH enabled
+- Firmware **9.1.79.3 or later**, unsecured, SSH enabled
 
 **Setup**:
 
