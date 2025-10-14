@@ -1,89 +1,190 @@
 # BrightSign Python Extension Documentation
 
-This directory contains detailed documentation for developing Python extensions for BrightSign players using Yocto/BitBake.
+This directory contains comprehensive documentation for developing and deploying Python extensions with NPU acceleration for BrightSign players.
 
 ## Documentation Structure
 
-### Core Documents
+### Getting Started (Start Here!)
 
-1. **[build-process.md](build-process.md)** - Step-by-step guide to the build workflow
+1. **[../QUICKSTART.md](../QUICKSTART.md)** - Fast-track guide (60-90 minutes to first build)
+   - Three-command quick start
+   - Prerequisites with time estimates
+   - Common issues and solutions
+   - Model Zoo quick validation
+
+2. **[getting-started.md](getting-started.md)** - Complete first-time setup guide
+   - Detailed system requirements
+   - Environment preparation
+   - Step-by-step build process with explanations
+   - Packaging and verification
+   - Troubleshooting at each stage
+
+3. **[../FAQ.md](../FAQ.md)** - 25+ frequently asked questions
+   - Architecture & compatibility
+   - Build process questions
+   - Deployment and testing
+   - NPU and Model Zoo
+
+### Core Workflow Guides
+
+4. **[deployment.md](deployment.md)** - Deploying packages to BrightSign players
+   - Package types (development vs production)
+   - Player preparation and prerequisites
+   - Deployment workflows and commands
+   - User init scripts for auto-start
+   - Verification and testing
+   - Updates and maintenance
+
+5. **[model-zoo-guide.md](model-zoo-guide.md)** - Using NPU-accelerated inference
+   - RKNN Model Zoo overview (50+ models)
+   - RKNNLite compatibility setup
+   - YOLOX quick start example
+   - Available model categories
+   - Model conversion and optimization
+   - Performance tuning
+
+6. **[../WORKFLOWS.md](../WORKFLOWS.md)** - Copy-paste command reference
+   - First-time setup commands
+   - Rebuild procedures
+   - Deployment workflows
+   - Adding Python packages
+   - NPU testing examples
+   - Common troubleshooting commands
+
+### Advanced Topics
+
+7. **[build-process.md](build-process.md)** - Deep dive into Yocto/BitBake workflow
    - Prerequisites and setup
    - Recipe development workflow
    - Build optimization strategies
    - Artifact management
 
-2. **[troubleshooting.md](troubleshooting.md)** - Common issues and solutions
+8. **[troubleshooting.md](troubleshooting.md)** - Comprehensive issue resolution
    - Quick diagnosis flowchart
    - Error message reference
    - Advanced debugging techniques
    - Recovery procedures
 
-### Quick Start
+### Quick Start Path
 
-For new developers:
-1. Read the main [README.md](../README.md) for project overview
-2. Review [CLAUDE.md](../CLAUDE.md) for development constraints
-3. Follow [build-process.md](build-process.md) for your first build
-4. Reference [troubleshooting.md](troubleshooting.md) when issues arise
+**For new developers**, follow this sequence:
+
+1. Start with [../QUICKSTART.md](../QUICKSTART.md) for immediate hands-on experience
+2. Read [getting-started.md](getting-started.md) for detailed understanding
+3. Use [../WORKFLOWS.md](../WORKFLOWS.md) as your command reference
+4. Deploy with [deployment.md](deployment.md)
+5. Test NPU inference with [model-zoo-guide.md](model-zoo-guide.md)
+6. Reference [../FAQ.md](../FAQ.md) when questions arise
+7. Use [troubleshooting.md](troubleshooting.md) when issues occur
 
 ### Tools and Scripts
 
-- **check-recipe-syntax.py** - Validate BitBake recipes before building
-- **validate-recipes.sh** - Comprehensive recipe validation suite
-- **patch-n-build.sh** - Main build automation script
-- **recipe-template.bb** - Template for new Python package recipes
+Located in the project root directory:
+
+- **[../setup](../setup)** - Initial environment setup (downloads sources, builds Docker)
+- **[../build](../build)** - BitBake build wrapper (SDK and individual packages)
+- **[../package](../package)** - Package extension artifacts into deployable zips
+- **[../check-prerequisites](../check-prerequisites)** - Validate system before building
+- **[../check-recipe-syntax.py](../check-recipe-syntax.py)** - Validate BitBake recipes
+- **[../validate](../validate)** - Comprehensive recipe validation suite
 
 ### Development Workflow
 
+#### First-Time Setup
 ```
-1. Create recipe from template
+1. Check prerequisites (./check-prerequisites)
    ↓
-2. Validate with check-recipe-syntax.py
+2. Setup environment (./setup -y)
    ↓
-3. Build individual package
+3. Build SDK (./build --extract-sdk)
    ↓
-4. Fix any issues (see troubleshooting.md)
+4. Package extension (./package)
    ↓
-5. Run full validation suite
+5. Deploy to player (see deployment.md)
    ↓
-6. Build full SDK
-   ↓
-7. Create extension package
+6. Test with Model Zoo (see model-zoo-guide.md)
 ```
 
-### Key Commands Reference
+#### Adding Python Packages
+```
+1. Create recipe from template (bsoe-recipes/meta-bs/recipes-devtools/python/)
+   ↓
+2. Validate syntax (./check-recipe-syntax.py recipe.bb)
+   ↓
+3. Build individual package (./build python3-packagename)
+   ↓
+4. Fix issues (see troubleshooting.md)
+   ↓
+5. Rebuild SDK (./build --extract-sdk)
+   ↓
+6. Package and deploy
+```
+
+### Essential Commands Reference
+
+See [../WORKFLOWS.md](../WORKFLOWS.md) for comprehensive command reference. Quick examples:
 
 ```bash
-# Validate single recipe
-./check-recipe-syntax.py recipe.bb
+# Prerequisites check
+./check-prerequisites
 
-# Validate all recipes
-./validate-recipes.sh
+# Initial setup
+./setup -y
 
-# Build individual package
-./patch-n-build.sh python3-package
+# Build SDK (30-60 minutes)
+./build --extract-sdk
+
+# Build individual package (5-15 minutes)
+./build python3-opencv
 
 # Clean build
-./patch-n-build.sh --clean python3-package
+./build --clean python3-opencv
 
-# Full clean (permissions fix)
-./patch-n-build.sh --distclean python3-package
+# Package development extension
+./package
 
-# Build SDK
-./patch-n-build.sh brightsign-sdk
+# Package production extension
+./package --production
+
+# Validate recipes
+./validate
 ```
 
 ### Best Practices
 
-1. **Always validate before building** - Saves 5-15 minutes per iteration
-2. **Test incrementally** - Individual packages before full SDK
-3. **Use the template** - Ensures consistent recipe structure
-4. **Monitor build output** - Catch errors early
-5. **Document changes** - Track what worked and what didn't
+1. **Check prerequisites first** - Use `./check-prerequisites` to fail fast on incompatible systems
+2. **Test incrementally** - Individual packages before full SDK (saves 30+ minutes per iteration)
+3. **Use WORKFLOWS.md** - Copy-paste commands instead of memorizing
+4. **Follow the quick start path** - Reduces time-to-first-build from 2-4 hours to 60-90 minutes
+5. **Read FAQ.md first** - 80% of questions already answered
+6. **Deploy development packages for testing** - Faster iteration than production packages
+
+### Documentation By Task
+
+**I want to...**
+
+- **Build my first extension** → Start with [../QUICKSTART.md](../QUICKSTART.md)
+- **Understand the system deeply** → Read [getting-started.md](getting-started.md)
+- **Deploy to a player** → Follow [deployment.md](deployment.md)
+- **Use NPU for inference** → See [model-zoo-guide.md](model-zoo-guide.md)
+- **Find a specific command** → Check [../WORKFLOWS.md](../WORKFLOWS.md)
+- **Solve a problem** → Try [../FAQ.md](../FAQ.md) first, then [troubleshooting.md](troubleshooting.md)
+- **Add a Python package** → See [build-process.md](build-process.md)
+- **Understand BitBake** → Deep dive in [build-process.md](build-process.md)
 
 ### Getting Help
 
-- Check error messages against troubleshooting.md
-- Review similar recipes for patterns
-- Validate syntax before asking for help
-- Include logs and recipe content in bug reports
+1. **Check [../FAQ.md](../FAQ.md)** - Most common questions answered
+2. **Search [troubleshooting.md](troubleshooting.md)** - Error messages and solutions
+3. **Review [../WORKFLOWS.md](../WORKFLOWS.md)** - Ensure you're using correct commands
+4. **Check prerequisites** - Many issues stem from incompatible systems
+5. **Read error logs** - BitBake provides detailed failure information
+
+### Contributing
+
+When adding documentation:
+- Follow progressive disclosure pattern (overview → details)
+- Include time estimates for long operations
+- Provide copy-paste commands where possible
+- Add troubleshooting sections
+- Update this README to link to new content
