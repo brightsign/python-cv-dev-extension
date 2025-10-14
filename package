@@ -202,81 +202,83 @@ add_extension_scripts() {
 
 # Copy rknn-toolkit-lite2 wheel file
 copy_rknn_wheel() {
-    log "Installing RKNN toolkit packages into extension site-packages..."
+    log "Installing RKNN toolkit into extension site-packages..."
 
-    # Install rknn-toolkit-lite2 (lightweight runtime)
+    # Install rknn-toolkit-lite2 (lightweight runtime for on-device inference)
+    # Note: Full rknn-toolkit2 is NOT compatible with BrightSign due to hardcoded
+    # /usr/lib64/ paths. Model zoo examples work via patched rknn_executor.py
     local lite_wheel_path="toolkit/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
-
-    # Install full rknn-toolkit2 (provides rknn.api.RKNN for model_zoo examples)
-    local full_wheel_path="toolkit/rknn-toolkit2/rknn-toolkit2/packages/arm64/rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
 
     local site_packages="install/usr/lib/python3.8/site-packages"
     mkdir -p "$site_packages"
 
-    # Function to install a wheel
-    install_wheel() {
-        local wheel_path="$1"
-        local package_name="$2"
-
-        if [[ ! -f "$wheel_path" ]]; then
-            warn "$package_name wheel not found at: $wheel_path"
-            return 1
-        fi
-
-        log "Installing $package_name..."
-        local temp_dir=$(mktemp -d)
-
-        # Extract wheel contents (wheel is just a ZIP file)
-        unzip -q "$wheel_path" -d "$temp_dir" || {
-            error "Failed to extract $package_name wheel"
-            rm -rf "$temp_dir"
-            return 1
-        }
-
-        # Copy all package directories (could be rknn/, rknnlite/, etc.)
-        for pkg_dir in "$temp_dir"/*/ ; do
-            local dir_name=$(basename "$pkg_dir")
-            # Skip .dist-info and other metadata directories for now
-            if [[ ! "$dir_name" =~ \.dist-info$ ]] && [[ ! "$dir_name" =~ ^__ ]]; then
-                if [[ -d "$pkg_dir" ]]; then
-                    cp -r "$pkg_dir" "$site_packages/"
-                    log "  Installed package: $dir_name"
-                fi
-            fi
-        done
-
-        # Copy metadata
-        for dist_info in "$temp_dir"/*.dist-info; do
-            if [[ -d "$dist_info" ]]; then
-                cp -r "$dist_info" "$site_packages/"
-                log "  Installed metadata: $(basename "$dist_info")"
-            fi
-        done
-
-        # Cleanup temporary directory
-        rm -rf "$temp_dir"
-        success "$package_name installed successfully"
-        return 0
-    }
-
-    # Install both packages
-    local install_count=0
-
-    if install_wheel "$lite_wheel_path" "rknn-toolkit-lite2"; then
-        install_count=$((install_count + 1))
-    fi
-
-    if install_wheel "$full_wheel_path" "rknn-toolkit2"; then
-        install_count=$((install_count + 1))
-    fi
-
-    if [[ $install_count -eq 0 ]]; then
-        error "No RKNN toolkit packages installed. Run ./setup first to clone rknn-toolkit2"
+    if [[ ! -f "$lite_wheel_path" ]]; then
+        error "rknn-toolkit-lite2 wheel not found at: $lite_wheel_path"
+        error "Run ./setup first to clone rknn-toolkit2"
         return 1
     fi
 
-    success "RKNN toolkit packages installed ($install_count packages, requires OS 9.1.79.3+)"
-    log "Installed packages provide both 'rknn.api.RKNN' and 'rknnlite.api.RKNNLite' APIs"
+    log "Installing rknn-toolkit-lite2..."
+    local temp_dir=$(mktemp -d)
+
+    # Extract wheel contents (wheel is just a ZIP file)
+    unzip -q "$lite_wheel_path" -d "$temp_dir" || {
+        error "Failed to extract rknn-toolkit-lite2 wheel"
+        rm -rf "$temp_dir"
+        return 1
+    }
+
+    # Copy all package directories
+    for pkg_dir in "$temp_dir"/*/ ; do
+        local dir_name=$(basename "$pkg_dir")
+        # Skip .dist-info and other metadata directories for now
+        if [[ ! "$dir_name" =~ \.dist-info$ ]] && [[ ! "$dir_name" =~ ^__ ]]; then
+            if [[ -d "$pkg_dir" ]]; then
+                cp -r "$pkg_dir" "$site_packages/"
+                log "  Installed package: $dir_name"
+            fi
+        fi
+    done
+
+    # Copy metadata
+    for dist_info in "$temp_dir"/*.dist-info; do
+        if [[ -d "$dist_info" ]]; then
+            cp -r "$dist_info" "$site_packages/"
+            log "  Installed metadata: $(basename "$dist_info")"
+        fi
+    done
+
+    # Cleanup temporary directory
+    rm -rf "$temp_dir"
+
+    success "rknn-toolkit-lite2 installed successfully (requires OS 9.1.79.3+)"
+    log "Provides 'rknnlite.api.RKNNLite' for on-device NPU inference"
+}
+
+# Copy user-init examples (including patched py_utils)
+copy_user_init_examples() {
+    log "Copying user-init examples..."
+
+    local examples_src="user-init/examples"
+    local examples_dst="install/examples"
+
+    if [[ ! -d "$examples_src" ]]; then
+        warn "user-init/examples directory not found - skipping"
+        return 0
+    fi
+
+    mkdir -p "$examples_dst"
+
+    # Copy all example files and directories
+    cp -r "$examples_src"/* "$examples_dst/"
+
+    # Verify py_utils was copied
+    if [[ -d "$examples_dst/py_utils" ]]; then
+        success "User-init examples copied (including patched py_utils for model_zoo)"
+        log "py_utils provides RKNNLite compatibility wrapper for model_zoo examples"
+    else
+        warn "py_utils directory not found in user-init examples"
+    fi
 }
 
 # Copy YOLOX example if requested
@@ -630,6 +632,7 @@ main() {
     copy_sdk_components
     add_extension_scripts
     copy_rknn_wheel
+    copy_user_init_examples
     copy_yolox_example
     echo ""
 

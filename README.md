@@ -966,15 +966,13 @@ echo "Python development environment is set up.  Use 'python3' and 'pip3' to wor
 
 ### Running RKNN Model Zoo Examples
 
-The extension includes **both** RKNN toolkit packages:
-- `rknn-toolkit2` - Full toolkit (provides `rknn.api.RKNN` for model_zoo examples)
-- `rknn-toolkit-lite2` - Lightweight runtime (provides `rknnlite.api.RKNNLite`)
+The extension includes `rknn-toolkit-lite2` which provides the `RKNNLite` API for on-device NPU inference. Model zoo examples are adapted to use RKNNLite via a compatibility wrapper.
 
-**Important**: The full `rknn-toolkit2` package requires `onnx` which must be installed via pip. Run `/usr/local/pydev/bsext_init start` to automatically install dependencies from `requirements.txt`.
+**Why RKNNLite only?** The full `rknn-toolkit2` has hardcoded `/usr/lib64/` paths incompatible with BrightSign's ARM64 architecture (which uses `/usr/lib/`). RKNNLite is designed for embedded ARM64 targets and works correctly on BrightSign players.
 
 #### Example: YOLOX Object Detection
 
-This example demonstrates NPU-accelerated object detection using the official YOLOX model and example code.
+This example demonstrates NPU-accelerated object detection using the official YOLOX model with the pre-patched compatibility layer.
 
 **Step 1: Get the compiled model and test images**
 
@@ -998,7 +996,7 @@ scp bus.jpg brightsign@<PLAYER_IP>:/usr/local/bus.jpg
 # SSH to player
 ssh brightsign@<PLAYER_IP>
 
-# Initialize extension (installs dependencies from requirements.txt including onnx)
+# Initialize extension
 cd /usr/local/pydev
 ./bsext_init start
 
@@ -1010,6 +1008,12 @@ cd /usr/local
 wget https://github.com/airockchip/rknn_model_zoo/archive/refs/tags/v2.3.2.zip
 unzip v2.3.2.zip
 mv rknn_model_zoo-2.3.2 rknn_model_zoo
+
+# Copy pre-patched py_utils for BrightSign compatibility
+# For development installation (/usr/local/pydev):
+cp -r /usr/local/pydev/examples/py_utils /usr/local/rknn_model_zoo/examples/yolox/python/
+# OR for production installation (/var/volatile/bsext/ext_pydev):
+# cp -r /var/volatile/bsext/ext_pydev/examples/py_utils /usr/local/rknn_model_zoo/examples/yolox/python/
 ```
 
 **Step 3: Run YOLOX inference**
@@ -1021,7 +1025,7 @@ export IMG_FOLDER=/usr/local/
 
 # Run the model_zoo example
 cd /usr/local/rknn_model_zoo/examples/yolox/python
-python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder ${IMG_FOLDER}
+python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder ${IMG_FOLDER} --img_save
 ```
 
 **Expected output**:
@@ -1029,10 +1033,16 @@ python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder ${IMG_F
 --> Init runtime environment
 done
 --> Running model
-save result to ./result.jpg
+infer 1/1
+save result to ./result/bus.jpg
 ```
 
-The example will detect objects in your test image and save results to `result.jpg` with bounding boxes and labels.
+The example will detect objects in your test image and save results with bounding boxes and labels.
+
+**What's in the patched py_utils?**
+- Adapted `rknn_executor.py` uses `RKNNLite` instead of full `RKNN` toolkit
+- Handles API differences (init_runtime signature, batch dimension requirements)
+- Maintains compatibility with all model_zoo examples
 
 **Note**: Requires BrightSign OS 9.1.79.3 or later for NPU functionality.
 
