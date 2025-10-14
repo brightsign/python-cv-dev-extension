@@ -86,7 +86,15 @@
       "Bash(git push:*)",
       "Bash(git config:*)",
       "Bash(git remote set-url:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Read(/tmp/**)",
+      "Bash(git checkout:*)",
+      "Read(/tmp/**)",
+      "Bash(readelf:*)",
+      "WebSearch",
+      "WebFetch(domain:forum.radxa.com)",
+      "Bash(command -v:*)",
+      "Bash(patchelf:*)"
     ],
     "deny": []
   }

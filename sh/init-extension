@@ -16,23 +16,21 @@ else
     exit 1
 fi
 
-# Install rknn-toolkit-lite2 wheel if present and not already installed
-RKNN_WHEEL="${EXTENSION_HOME}/usr/lib/python3.8/wheels/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
-if [ -f "$RKNN_WHEEL" ]; then
-    echo "Checking rknn-toolkit-lite2 installation..."
-    if ! python3 -c "import rknnlite" 2>/dev/null; then
-        echo "Installing rknn-toolkit-lite2..."
-        if pip3 install --no-deps "$RKNN_WHEEL"; then
-            echo "  Success: rknn-toolkit-lite2 installed"
-        else
-            echo "  Warning: Failed to install rknn-toolkit-lite2 (extension will continue)"
-            logger -t "bsext-pydev" "RKNN toolkit installation failed but extension continues"
-        fi
-    else
-        echo "  rknn-toolkit-lite2 already installed"
-    fi
+# Verify RKNN runtime library is available (OS 9.1.79.3+ provides this)
+if [ -f "/usr/lib/librknnrt.so" ]; then
+    echo "✅ RKNN runtime library found at /usr/lib/librknnrt.so (OS 9.1.79.3+)"
 else
-    echo "RKNN wheel not found, skipping RKNN installation"
+    echo "⚠️  Warning: RKNN runtime library not found at /usr/lib/librknnrt.so"
+    echo "   Requires BrightSign OS 9.1.79.3 or later"
+    logger -t "bsext-pydev" "RKNN runtime library not found - OS 9.1.79.3+ required"
+fi
+
+# Verify rknn-toolkit-lite2 package is available
+if python3 -c "import rknnlite" 2>/dev/null; then
+    echo "✅ RKNN toolkit package is available"
+else
+    echo "⚠️  Warning: RKNN toolkit package not found in site-packages"
+    logger -t "bsext-pydev" "RKNN toolkit package not available"
 fi
 
 # Run user initialization if configured

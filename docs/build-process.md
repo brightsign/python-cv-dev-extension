@@ -14,6 +14,7 @@ The build process follows this high-level workflow:
 - Docker installed and running
 - ~50GB free disk space
 - 8GB+ RAM recommended
+- **patchelf** tool installed: `sudo apt-get install patchelf` or `pip3 install patchelf`
 - Build Docker image created: `docker build -t bsoe-build .`
 
 ## Step-by-Step Build Process

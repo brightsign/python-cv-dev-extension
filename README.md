@@ -23,9 +23,11 @@ __Key requirement__: x86_64 development host (Apple Silicon incompatible due to 
 
 | player | minimum OS Version required |
 | --- | --- |
-| XT-5: XT1145, XT2145 | [9.1.52](https://brightsignbiz.s3.amazonaws.com/firmware/xd5/9.1/9.1.52/brightsign-xd5-update-9.1.52.zip) |
-| _Firebird_ (in process) | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
-| _LS-5: LS445_ (in process) | [BETA-9.1.52](https://bsnbuilds.s3.us-east-1.amazonaws.com/firmware/brightsign-demos/9.1.52-BETA/BETA-cobra-9.1.52-update.bsfw) |
+| XT-5: XT1145, XT2145 | [9.1.79.3](https://brightsignbiz.s3.amazonaws.com/firmware/xd5/9.1/9.1.79.3/brightsign-xd5-update-9.1.79.3.zip) |
+| _Firebird_ (in process) | 9.1.79.3+ required |
+| _LS-5: LS445_ (in process) | 9.1.79.3+ required |
+
+**IMPORTANT**: OS 9.1.79.3 or later is **required** for RKNN toolkit functionality. This OS version includes the system `librknnrt.so` library that RKNN toolkit expects at `/usr/lib/librknnrt.so`. Earlier OS versions will encounter RKNN initialization failures.
 
 **NOTE:** This guide is written **ONLY** for the XT-5. Supporting Firebird or LS-5 is a straightforward exercise for the motivated reader.
 
@@ -40,12 +42,13 @@ __Key requirement__: x86_64 development host (Apple Silicon incompatible due to 
 **Target Device**:
 
 - BrightSign Series 5 (XT-5, Firebird, LS-5)
-- Firmware 9.1.52+, unsecured, SSH enabled
+- Firmware **9.1.79.3 or later**, unsecured, SSH enabled
 
 **Setup**:
 
 ```bash
-sudo apt-get update && apt-get install -y docker.io git cmake
+sudo apt-get update && apt-get install -y docker.io git cmake patchelf
+# Alternative: pip3 install patchelf
 uname -m  # Verify: x86_64
 ```
 
@@ -961,26 +964,87 @@ echo "Python development environment is set up.  Use 'python3' and 'pip3' to wor
 
 ```
 
-### Download a sample project
+### Running RKNN Model Zoo Examples
 
-For this example, we will use the rknn_model_zoo yolox example.
+The extension includes `rknn-toolkit-lite2` which provides the `RKNNLite` API for on-device NPU inference. Model zoo examples are adapted to use RKNNLite via a compatibility wrapper.
 
-This example relies on having a YoloX model compiled for the target hardware (XT-5/RK3588 NPU).  Run and install the yolox demo from [https://github.com/brightsign/brightsign-npu-yolox] into `/usr/local/yolo`.
+**Why RKNNLite only?** The full `rknn-toolkit2` has hardcoded `/usr/lib64/` paths incompatible with BrightSign's ARM64 architecture (which uses `/usr/lib/`). RKNNLite is designed for embedded ARM64 targets and works correctly on BrightSign players.
+
+#### Example: YOLOX Object Detection
+
+This example demonstrates NPU-accelerated object detection using the official YOLOX model with the pre-patched compatibility layer.
+
+**Step 1: Get the compiled model and test images**
+
+Transfer the pre-compiled YOLOX model to your player.
 
 ```sh
-# after sourcing the environment, you can run these commands in the player shell:
-MODEL_PATH=/usr/local/yolo/RK3588/model/yolox_s.rknn
+# On your development machine
+# Download pre-compiled model for RK3588
+wget https://github.com/airockchip/rknn_model_zoo/releases/download/v2.3.2/yolox_s_rk3588.rknn
 
+# Transfer to player (use your player's IP)
+scp yolox_s_rk3588.rknn brightsign@<PLAYER_IP>:/usr/local/yolox_s.rknn
+
+# Also transfer a test image (e.g., bus.jpg from COCO dataset)
+scp bus.jpg brightsign@<PLAYER_IP>:/usr/local/bus.jpg
+```
+
+**Step 2: Set up on the player**
+
+```sh
+# SSH to player
+ssh brightsign@<PLAYER_IP>
+
+# Initialize extension
+cd /usr/local/pydev
+./bsext_init start
+
+# Source Python environment
+source sh/setup_python_env
+
+# Download model_zoo examples to /usr/local
 cd /usr/local
-
 wget https://github.com/airockchip/rknn_model_zoo/archive/refs/tags/v2.3.2.zip
 unzip v2.3.2.zip
-
 mv rknn_model_zoo-2.3.2 rknn_model_zoo
 
-cd rknn_model_zoo/examples/yolox/python
-python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/local/yolo/
+# Copy pre-patched py_utils for BrightSign compatibility
+# For development installation (/usr/local/pydev):
+cp -r /usr/local/pydev/examples/py_utils /usr/local/rknn_model_zoo/examples/yolox/python/
+# OR for production installation (/var/volatile/bsext/ext_pydev):
+# cp -r /var/volatile/bsext/ext_pydev/examples/py_utils /usr/local/rknn_model_zoo/examples/yolox/python/
 ```
+
+**Step 3: Run YOLOX inference**
+
+```sh
+# Set explicit paths (using /usr/local for writable, executable storage)
+export MODEL_PATH=/usr/local/yolox_s.rknn
+export IMG_FOLDER=/usr/local/
+
+# Run the model_zoo example
+cd /usr/local/rknn_model_zoo/examples/yolox/python
+python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder ${IMG_FOLDER} --img_save
+```
+
+**Expected output**:
+```
+--> Init runtime environment
+done
+--> Running model
+infer 1/1
+save result to ./result/bus.jpg
+```
+
+The example will detect objects in your test image and save results with bounding boxes and labels.
+
+**What's in the patched py_utils?**
+- Adapted `rknn_executor.py` uses `RKNNLite` instead of full `RKNN` toolkit
+- Handles API differences (init_runtime signature, batch dimension requirements)
+- Maintains compatibility with all model_zoo examples
+
+**Note**: Requires BrightSign OS 9.1.79.3 or later for NPU functionality.
 
 ## Troubleshooting
 
