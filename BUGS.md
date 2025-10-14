@@ -15,9 +15,12 @@
 
 ### Test Results
 
-**Test Date**: 2025-01-31
-**Player**: BrightSign with OS 9.1.79.3
-**Test Command**:
+**Initial Test Date**: 2025-01-31
+**Final Validation**: 2025-01-31
+**Player**: BrightSign XT-5 (RK3588) with OS 9.1.79.3
+
+#### Test 1: RKNN Initialization (2025-01-31 Initial)
+**Command**:
 ```bash
 cd /usr/local/pydev
 source sh/setup_python_env
@@ -33,6 +36,24 @@ SUCCESS!
 ```
 
 **Result**: ✅ RKNN initialization succeeds. No "Can not find dynamic library" error.
+
+#### Test 2: Full NPU Inference Pipeline (2025-01-31 Final Validation)
+**Command**:
+```bash
+python3 /storage/sd/test_yolox_npu.py /storage/sd/yolox_s.rknn /storage/sd/bus.jpg
+```
+
+**Results**:
+- ✅ Model loading: Successful
+- ✅ Runtime initialization: Successful (librknnrt 2.3.0, driver 0.9.3)
+- ✅ NPU inference: Completed without errors
+- ✅ Object detection: 5 objects detected
+- ✅ Detection accuracy: 93% confidence on primary object (bus)
+- ✅ Post-processing: Working correctly
+
+**Complete test output and analysis**: See [docs/npu-inference-testing.md](docs/npu-inference-testing.md)
+
+**Conclusion**: ✅ **COMPLETE END-TO-END NPU INFERENCE PIPELINE VALIDATED** on actual hardware. Issue fully resolved.
 
 ### Minimum OS Requirement
 
