@@ -183,22 +183,30 @@ CONTAINER_CMD=""
 
 # Add distclean if requested
 if [ "$DISTCLEAN" = true ]; then
-    echo "Will perform distclean inside container..."
-    CONTAINER_CMD="$CONTAINER_CMD if [ -d /home/builder/bsoe/brightsign-oe/build/tmp-glibc ]; then rm -rf /home/builder/bsoe/brightsign-oe/build/tmp-glibc; echo 'Removed tmp-glibc'; fi; "
-    CONTAINER_CMD="$CONTAINER_CMD if [ -d /home/builder/bsoe/brightsign-oe/sstate-cache ]; then rm -rf /home/builder/bsoe/brightsign-oe/sstate-cache; echo 'Removed sstate-cache'; fi; "
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🧹 DISTCLEAN: Removing build directories (may take 1-2 minutes)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    CONTAINER_CMD="$CONTAINER_CMD if [ -d /home/builder/bsoe/brightsign-oe/build/tmp-glibc ]; then rm -rf /home/builder/bsoe/brightsign-oe/build/tmp-glibc; echo '✅ Removed tmp-glibc'; fi; "
+    CONTAINER_CMD="$CONTAINER_CMD if [ -d /home/builder/bsoe/brightsign-oe/sstate-cache ]; then rm -rf /home/builder/bsoe/brightsign-oe/sstate-cache; echo '✅ Removed sstate-cache'; fi; "
 fi
 
 # Add patch application if not --no-patch mode
 if [ "$NO_PATCH" != true ]; then
-    echo "Will apply patches and build $TARGET..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔧 PATCHING: Applying custom recipes to build environment"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     CONTAINER_CMD="$CONTAINER_CMD /usr/local/bin/setup-patches.sh && "
 else
-    echo "Building $TARGET without patches (vanilla build)..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🔧 VANILLA BUILD: Building without custom patches"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 fi
 
 # Add clean if requested
 if [ "$CLEAN" = true ]; then
-    echo "Will clean previous build artifacts for $TARGET..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🧹 CLEAN: Removing previous build artifacts for $TARGET"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     CONTAINER_CMD="$CONTAINER_CMD MACHINE=cobra ./bsbb -c cleanall $TARGET 2>/dev/null || true; "
 fi
 
@@ -206,37 +214,57 @@ fi
 CONTAINER_CMD="$CONTAINER_CMD $BUILD_CMD"
 
 # Execute everything in a single container run
-echo "Building $TARGET..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔨 BUILDING: $TARGET"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Provide time estimates based on target
 if [ "$TARGET" = "brightsign-sdk" ]; then
-    echo "Warning: Full SDK build may take 30+ minutes depending on your system"
+    echo "⏱️  Estimated time: 30-60 minutes (full SDK build)"
+    echo "💡 Tip: This is a good time for a coffee break!"
+else
+    echo "⏱️  Estimated time: 5-15 minutes (individual package)"
 fi
+echo ""
+echo "📊 Progress updates:"
+echo "  • BitBake will show task progress as packages are built"
+echo "  • Look for 'NOTE: Tasks Summary:' at the end for build stats"
+echo "  • Any errors will be clearly marked with ERROR:"
+echo ""
+echo "Starting build now..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
 eval "$DOCKER_CMD bash -c \"$CONTAINER_CMD\""
 
 if [ $? -eq 0 ]; then
-    echo "✅ $TARGET built successfully"
-    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "✅ SUCCESS: $TARGET built successfully"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
     # Extract SDK if requested
     if [ "$EXTRACT_SDK" = true ] && [ "$TARGET" = "brightsign-sdk" ]; then
-        echo "Extracting SDK to host..."
-        
+        echo ""
+        echo "📦 Extracting and installing SDK..."
+
         # Look for SDK file in srv directory (copied during build)
         SDK_FILE=$(ls "${SCRIPT_DIR}/srv/brightsign-x86_64-"*"-toolchain-"*".sh" 2>/dev/null | head -n 1)
-        
+
         if [ -n "$SDK_FILE" ] && [ -f "$SDK_FILE" ]; then
             SDK_BASENAME=$(basename "$SDK_FILE")
             cp "$SDK_FILE" "${SCRIPT_DIR}/${SDK_BASENAME}"
             echo "✅ SDK extracted to ${SCRIPT_DIR}/${SDK_BASENAME}"
             # Clean up the copy in srv
             rm -f "$SDK_FILE"
-            
+
             # Also install and patch SDK if requested
-            echo "Installing SDK to ./sdk directory..."
+            echo "📦 Installing SDK to ./sdk directory..."
             if "${SCRIPT_DIR}/${SDK_BASENAME}" -d "${SCRIPT_DIR}/sdk" -y; then
                 echo "✅ SDK installed to ./sdk"
-                
+
                 # Patch SDK with Rockchip libraries (same as reference project)
-                echo "Adding librknnrt.so to SDK..."
+                echo "🔧 Adding librknnrt.so to SDK..."
                 cd "${SCRIPT_DIR}/sdk/sysroots/aarch64-oe-linux/usr/lib"
                 if [ ! -f "librknnrt.so" ]; then
                     if wget -q https://github.com/airockchip/rknn-toolkit2/raw/v2.3.2/rknpu2/runtime/Linux/librknn_api/aarch64/librknnrt.so; then
@@ -248,15 +276,68 @@ if [ $? -eq 0 ]; then
                     echo "✅ librknnrt.so already present in SDK"
                 fi
                 cd "${SCRIPT_DIR}"
+
+                echo ""
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "🎉 COMPLETE: SDK ready for packaging"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo ""
+                echo "📋 Next steps:"
+                echo "  1. Package the extension:  ./package"
+                echo "  2. Deploy to player: See docs/deployment.md"
+                echo "  3. Test with Model Zoo: See docs/model-zoo-guide.md"
+                echo ""
             else
                 echo "⚠️  SDK installation failed - SDK installer is available for manual installation"
+                echo ""
+                echo "💡 Manual installation:"
+                echo "  ./${SDK_BASENAME} -d ./sdk -y"
             fi
         else
             echo "❌ SDK file not found in /srv directory"
             echo "    Expected: ${SCRIPT_DIR}/srv/brightsign-x86_64-*-toolchain-*.sh"
         fi
+    elif [ "$TARGET" != "brightsign-sdk" ]; then
+        echo ""
+        echo "📋 Next steps:"
+        echo "  1. Rebuild full SDK: ./build --extract-sdk"
+        echo "  2. Package extension:  ./package"
+        echo "  3. Deploy to player: See docs/deployment.md"
+        echo ""
     fi
 else
-    echo "❌ $TARGET build failed"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "❌ BUILD FAILED: $TARGET"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "🔍 Troubleshooting steps:"
+    echo ""
+    echo "1. Check the error message above for specific failures"
+    echo "   Look for lines starting with 'ERROR:' or 'FATAL:'"
+    echo ""
+    echo "2. Common issues and solutions:"
+    echo "   • 'Nothing PROVIDES' → Missing dependency, check DEPENDS/RDEPENDS"
+    echo "   • 'do_compile failed' → Check recipe syntax and build dependencies"
+    echo "   • 'Permission denied' → Run ./build --distclean $TARGET"
+    echo "   • 'Files not shipped' → Add FILES:\${PN} definition to recipe"
+    echo ""
+    echo "3. Get detailed logs:"
+    echo "   ./build --interactive"
+    echo "   # Then inside container:"
+    echo "   cd /home/builder/bsoe/brightsign-oe/build"
+    echo "   find tmp-glibc/work -name 'log.do_*' | grep $TARGET"
+    echo ""
+    echo "4. Try a clean build:"
+    echo "   ./build --clean $TARGET"
+    echo ""
+    echo "5. For persistent issues:"
+    echo "   ./build --distclean $TARGET"
+    echo ""
+    echo "6. Check documentation:"
+    echo "   • FAQ: FAQ.md"
+    echo "   • Troubleshooting: docs/troubleshooting.md"
+    echo "   • Workflows: WORKFLOWS.md"
+    echo ""
     exit 1
 fi

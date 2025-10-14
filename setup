@@ -91,127 +91,254 @@ success() {
 
 # Prerequisites check
 check_prerequisites() {
-    log "Checking prerequisites..."
-    
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "🔍 Checking prerequisites..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
     # Check architecture
+    echo "Checking system architecture..."
     if [[ "$(uname -m)" != "x86_64" ]]; then
-        error "This build requires x86_64 architecture. Current: $(uname -m)"
+        error "This build requires x86_64 architecture. Current: $(uname -m)
+
+💡 Solution: Use an x86_64 system or cloud VM (AWS, Google Cloud, Azure)
+   Apple Silicon (M1/M2/M3) is NOT compatible with RKNN toolkit"
     fi
-    
+    success "Architecture: x86_64 ✓"
+    echo ""
+
     # Check Docker
+    echo "Checking Docker installation..."
     if ! command -v docker &> /dev/null; then
-        error "Docker is required but not installed. Please install Docker first."
+        error "Docker is required but not installed.
+
+💡 Install Docker:
+   • Linux: https://docs.docker.com/engine/install/
+   • Mac: https://docs.docker.com/docker-for-mac/install/
+   • Windows: https://docs.docker.com/docker-for-windows/install/"
     fi
-    
+    success "Docker: installed ✓"
+    echo ""
+
     # Check Docker daemon
+    echo "Checking Docker daemon..."
     if ! docker info &> /dev/null; then
-        error "Docker daemon is not running. Please start Docker."
+        error "Docker daemon is not running.
+
+💡 Start Docker:
+   • Linux: sudo systemctl start docker
+   • Mac/Windows: Start Docker Desktop application"
     fi
-    
+    success "Docker daemon: running ✓"
+    echo ""
+
     # Check required tools
+    echo "Checking required tools..."
     for tool in wget tar git; do
         if ! command -v $tool &> /dev/null; then
-            error "$tool is required but not installed."
+            error "$tool is required but not installed.
+
+💡 Install $tool:
+   • Debian/Ubuntu: sudo apt-get install $tool
+   • Fedora/RHEL: sudo dnf install $tool
+   • macOS: brew install $tool"
         fi
     done
-    
+    success "Required tools (wget, tar, git): installed ✓"
+    echo ""
+
     # Check disk space (need ~25GB)
+    echo "Checking disk space..."
     available_space=$(df . | awk 'NR==2 {print $4}')
     required_space=$((25 * 1024 * 1024)) # 25GB in KB
-    
+
     if [[ $available_space -lt $required_space ]]; then
         warn "Warning: Less than 25GB free space available. Build may fail."
         warn "Available: $(($available_space / 1024 / 1024))GB, Recommended: 25GB+"
+        echo ""
+        echo "💡 Free up space by:"
+        echo "   • Removing unused Docker images: docker system prune -a"
+        echo "   • Clearing package caches"
+        echo "   • Moving project to larger disk"
+    else
+        success "Disk space: $(($available_space / 1024 / 1024))GB available ✓"
     fi
-    
-    success "Prerequisites check passed"
+    echo ""
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    success "✅ All prerequisites satisfied"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 }
 
 # Setup Docker build environment
 setup_docker() {
-    log "Setting up Docker build environment..."
-    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "🐳 Setting up Docker build environment..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
     # Download Dockerfile if not present
     if [[ ! -f "Dockerfile" ]]; then
-        log "Downloading Dockerfile..."
+        log "📥 Downloading Dockerfile..."
         wget "https://raw.githubusercontent.com/brightsign/extension-template/refs/heads/main/Dockerfile" || \
-            error "Failed to download Dockerfile"
+            error "Failed to download Dockerfile
+
+💡 Troubleshooting:
+   • Check internet connection
+   • Try downloading manually from:
+     https://github.com/brightsign/extension-template/blob/main/Dockerfile"
     fi
-    
+    success "Dockerfile ready ✓"
+    echo ""
+
     # Build Docker image
-    log "Building Docker image (this may take 5-10 minutes)..."
+    log "🔨 Building Docker image..."
+    echo "⏱️  This will take 5-10 minutes (downloads BrightSign OS source)"
+    echo "💡 Progress: Watch for 'Step X/Y' messages below"
+    echo ""
+
     docker build --rm \
         --build-arg USER_ID=$(id -u) \
         --build-arg GROUP_ID=$(id -g) \
         --build-arg BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_VERSION} \
         --ulimit memlock=-1:-1 \
-        -t bsoe-build . || error "Failed to build Docker image"
-    
+        -t bsoe-build . || error "Failed to build Docker image
+
+💡 Common issues:
+   • Docker daemon not running → Start Docker service
+   • Insufficient disk space → Free up at least 25GB
+   • Network timeout → Retry with better internet connection
+   • Permission denied → Ensure user is in 'docker' group:
+     sudo usermod -aG docker \$USER && newgrp docker"
+
+    success "Docker image built ✓"
+    echo ""
+
     # Create srv directory
+    log "📁 Creating workspace directories..."
     mkdir -p srv
-    
-    success "Docker environment ready"
+    success "Workspace directories created ✓"
+    echo ""
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    success "✅ Docker environment ready"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 }
 
 # Clone rknn-toolkit2 repository
 clone_rknn_toolkit() {
-    log "Cloning rknn-toolkit2 repository..."
-    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "📦 Cloning rknn-toolkit2 repository..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
     # Create toolkit directory if it doesn't exist
     mkdir -p toolkit
-    
+
     # Clone or update rknn-toolkit2
     if [[ -d "toolkit/rknn-toolkit2" ]]; then
-        log "rknn-toolkit2 already exists, updating..."
+        log "📂 rknn-toolkit2 already exists, updating..."
         cd toolkit/rknn-toolkit2
-        git fetch || warn "Failed to fetch updates"
-        git checkout v2.3.2 || warn "Failed to checkout v2.3.2 tag"
+        git fetch || warn "⚠️  Failed to fetch updates (using existing version)"
+        git checkout v2.3.2 || warn "⚠️  Failed to checkout v2.3.2 tag (using current version)"
         cd ../..
     else
-        log "Cloning rknn-toolkit2..."
+        log "📥 Cloning rknn-toolkit2 from GitHub..."
+        echo "⏱️  This may take 2-3 minutes depending on your connection"
+        echo ""
         cd toolkit
-        git clone https://github.com/airockchip/rknn-toolkit2.git || error "Failed to clone rknn-toolkit2"
+        git clone https://github.com/airockchip/rknn-toolkit2.git || error "Failed to clone rknn-toolkit2
+
+💡 Troubleshooting:
+   • Check internet connection
+   • Verify GitHub is accessible
+   • Try cloning manually:
+     cd toolkit
+     git clone https://github.com/airockchip/rknn-toolkit2.git"
         cd rknn-toolkit2
         git checkout v2.3.2 || error "Failed to checkout v2.3.2 tag"
         cd ../..
+        success "rknn-toolkit2 cloned successfully ✓"
     fi
-    
+    echo ""
+
     # Verify the wheel file exists (v2.3.2)
+    log "🔍 Verifying wheel file..."
     WHEEL_PATH="toolkit/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
     if [[ -f "$WHEEL_PATH" ]]; then
-        success "rknn-toolkit-lite2 wheel file found"
+        success "rknn-toolkit-lite2 wheel file found ✓"
     else
-        error "Expected wheel file not found at: $WHEEL_PATH"
+        error "Expected wheel file not found at: $WHEEL_PATH
+
+💡 This usually means the repository was not cloned correctly.
+   Try removing and re-cloning:
+   rm -rf toolkit/rknn-toolkit2
+   ./setup"
     fi
+    echo ""
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    success "✅ rknn-toolkit2 ready"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 }
 
 # Clone rknn_model_zoo repository
 clone_rknn_model_zoo() {
-    log "Cloning rknn_model_zoo repository..."
-    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "📦 Cloning rknn_model_zoo repository..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
     # Clone or update rknn_model_zoo
     if [[ -d "toolkit/rknn_model_zoo" ]]; then
-        log "rknn_model_zoo already exists, updating..."
+        log "📂 rknn_model_zoo already exists, updating..."
         cd toolkit/rknn_model_zoo
-        git fetch || warn "Failed to fetch updates"
-        git checkout v2.3.2 || warn "Failed to checkout v2.3.2 tag"
+        git fetch || warn "⚠️  Failed to fetch updates (using existing version)"
+        git checkout v2.3.2 || warn "⚠️  Failed to checkout v2.3.2 tag (using current version)"
         cd ../..
     else
-        log "Cloning rknn_model_zoo..."
+        log "📥 Cloning rknn_model_zoo from GitHub..."
+        echo "⏱️  This may take 2-3 minutes depending on your connection"
+        echo ""
         cd toolkit
-        git clone https://github.com/airockchip/rknn_model_zoo.git || error "Failed to clone rknn_model_zoo"
+        git clone https://github.com/airockchip/rknn_model_zoo.git || error "Failed to clone rknn_model_zoo
+
+💡 Troubleshooting:
+   • Check internet connection
+   • Verify GitHub is accessible
+   • Try cloning manually:
+     cd toolkit
+     git clone https://github.com/airockchip/rknn_model_zoo.git"
         cd rknn_model_zoo
         git checkout v2.3.2 || error "Failed to checkout v2.3.2 tag"
         cd ../..
+        success "rknn_model_zoo cloned successfully ✓"
     fi
-    
+    echo ""
+
     # Verify yolox example exists
+    log "🔍 Verifying model zoo examples..."
     YOLOX_PATH="toolkit/rknn_model_zoo/examples/yolox/python"
     if [[ -d "$YOLOX_PATH" ]]; then
-        success "rknn_model_zoo yolox example found"
+        success "rknn_model_zoo examples found ✓"
     else
-        error "Expected yolox example not found at: $YOLOX_PATH"
+        error "Expected yolox example not found at: $YOLOX_PATH
+
+💡 This usually means the repository was not cloned correctly.
+   Try removing and re-cloning:
+   rm -rf toolkit/rknn_model_zoo
+   ./setup"
     fi
+    echo ""
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    success "✅ rknn_model_zoo ready (50+ NPU-optimized models available)"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 }
 
 # Main setup function
@@ -249,15 +376,39 @@ main() {
     
     end_time=$(date +%s)
     duration=$((end_time - start_time))
-    
+
     echo ""
-    success "Setup completed successfully in $(($duration / 60))m $(($duration % 60))s"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "🎉 SETUP COMPLETE"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    success "Completed in $(($duration / 60))m $(($duration % 60))s"
     echo ""
-    echo "Next steps: See README.md 'Automated approach' section for complete build instructions"
+    echo "📋 Next Steps:"
     echo ""
-    echo "Environment variables set:"
-    echo "export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_VERSION}"
-    echo "export project_root=$(pwd)"
+    echo "1. Build the SDK (30-60 minutes):"
+    echo "   ./build --extract-sdk"
+    echo ""
+    echo "2. Package the extension (5 minutes):"
+    echo "   ./package"
+    echo ""
+    echo "3. Deploy to player:"
+    echo "   See docs/deployment.md for complete instructions"
+    echo ""
+    echo "4. Test with Model Zoo:"
+    echo "   See docs/model-zoo-guide.md for NPU inference examples"
+    echo ""
+    echo "📚 Documentation:"
+    echo "   • Quick start: QUICKSTART.md"
+    echo "   • Command reference: WORKFLOWS.md"
+    echo "   • FAQ: FAQ.md"
+    echo "   • Getting started guide: docs/getting-started.md"
+    echo ""
+    echo "💡 Environment variables:"
+    echo "   export BRIGHTSIGN_OS_VERSION=${BRIGHTSIGN_OS_VERSION}"
+    echo "   export project_root=$(pwd)"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 }
 
 # Run main function if script is executed directly
