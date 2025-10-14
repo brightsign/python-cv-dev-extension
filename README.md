@@ -964,26 +964,45 @@ echo "Python development environment is set up.  Use 'python3' and 'pip3' to wor
 
 ```
 
-### Download a sample project
+### Running RKNN Model Zoo Examples
 
-For this example, we will use the rknn_model_zoo yolox example.
+The extension includes **both** RKNN toolkit packages for maximum compatibility:
+- `rknn-toolkit2` - Full toolkit (provides `rknn.api.RKNN` for model_zoo examples)
+- `rknn-toolkit-lite2` - Lightweight runtime (provides `rknnlite.api.RKNNLite`)
 
-This example relies on having a YoloX model compiled for the target hardware (XT-5/RK3588 NPU).  Run and install the yolox demo from [https://github.com/brightsign/brightsign-npu-yolox] into `/usr/local/yolo`.
+This means you can run `rknn_model_zoo` examples directly on the player without modification!
+
+#### Example: YOLOX Object Detection with Model Zoo
+
+**Prerequisites**: Compiled YOLOX model for RK3588 (`.rknn` file) and test images
 
 ```sh
-# after sourcing the environment, you can run these commands in the player shell:
-MODEL_PATH=/usr/local/yolo/RK3588/model/yolox_s.rknn
+# On the player (development mode)
+cd /usr/local/pydev
+source sh/setup_python_env
 
+# Download model_zoo examples
 cd /usr/local
-
 wget https://github.com/airockchip/rknn_model_zoo/archive/refs/tags/v2.3.2.zip
 unzip v2.3.2.zip
-
 mv rknn_model_zoo-2.3.2 rknn_model_zoo
 
+# Run YOLOX example (uses rknn.api.RKNN from full toolkit)
 cd rknn_model_zoo/examples/yolox/python
-python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /usr/local/yolo/
+export MODEL_PATH=/path/to/yolox_s.rknn  # Your compiled .rknn model
+python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /path/to/images/
 ```
+
+**Alternative**: Use the included validation script (simpler, better documented):
+
+```sh
+# This script is pre-installed and fully validated
+python3 /usr/local/pydev/user-init/examples/test_yolox_npu.py \
+    /path/to/yolox_s.rknn \
+    /path/to/test_image.jpg
+```
+
+**Note**: Both approaches work on OS 9.1.79.3+. The validation script uses `rknnlite.api.RKNNLite` and includes detailed output.
 
 ## Troubleshooting
 
