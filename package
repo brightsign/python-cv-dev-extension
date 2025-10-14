@@ -202,50 +202,81 @@ add_extension_scripts() {
 
 # Copy rknn-toolkit-lite2 wheel file
 copy_rknn_wheel() {
-    log "Installing rknn-toolkit-lite2 into extension site-packages..."
-    
-    local wheel_path="toolkit/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
-    
-    if [[ -f "$wheel_path" ]]; then
-        # Create temporary directory for extraction
-        local temp_dir=$(mktemp -d)
-        
-        # Extract wheel contents (wheel is just a ZIP file)
-        log "Extracting wheel contents..."
-        unzip -q "$wheel_path" -d "$temp_dir"
-        
-        # Create site-packages directory
-        local site_packages="install/usr/lib/python3.8/site-packages"
-        mkdir -p "$site_packages"
-        
-        # Copy package directory and metadata to site-packages
-        log "Installing rknnlite package..."
-        if [[ -d "$temp_dir/rknnlite" ]]; then
-            cp -r "$temp_dir/rknnlite" "$site_packages/"
-            success "rknnlite package installed"
-        else
-            error "rknnlite package directory not found in wheel"
-            rm -rf "$temp_dir"
+    log "Installing RKNN toolkit packages into extension site-packages..."
+
+    # Install rknn-toolkit-lite2 (lightweight runtime)
+    local lite_wheel_path="toolkit/rknn-toolkit2/rknn-toolkit-lite2/packages/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+
+    # Install full rknn-toolkit2 (provides rknn.api.RKNN for model_zoo examples)
+    local full_wheel_path="toolkit/rknn-toolkit2/rknn-toolkit2/packages/arm64/rknn_toolkit2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl"
+
+    local site_packages="install/usr/lib/python3.8/site-packages"
+    mkdir -p "$site_packages"
+
+    # Function to install a wheel
+    install_wheel() {
+        local wheel_path="$1"
+        local package_name="$2"
+
+        if [[ ! -f "$wheel_path" ]]; then
+            warn "$package_name wheel not found at: $wheel_path"
             return 1
         fi
-        
-        log "Installing package metadata..."
-        if [[ -d "$temp_dir/rknn_toolkit_lite2-2.3.2.dist-info" ]]; then
-            cp -r "$temp_dir/rknn_toolkit_lite2-2.3.2.dist-info" "$site_packages/"
-            success "Package metadata installed"
-        else
-            warn "Package metadata directory not found - package may still work"
-        fi
-        
+
+        log "Installing $package_name..."
+        local temp_dir=$(mktemp -d)
+
+        # Extract wheel contents (wheel is just a ZIP file)
+        unzip -q "$wheel_path" -d "$temp_dir" || {
+            error "Failed to extract $package_name wheel"
+            rm -rf "$temp_dir"
+            return 1
+        }
+
+        # Copy all package directories (could be rknn/, rknnlite/, etc.)
+        for pkg_dir in "$temp_dir"/*/ ; do
+            local dir_name=$(basename "$pkg_dir")
+            # Skip .dist-info and other metadata directories for now
+            if [[ ! "$dir_name" =~ \.dist-info$ ]] && [[ ! "$dir_name" =~ ^__ ]]; then
+                if [[ -d "$pkg_dir" ]]; then
+                    cp -r "$pkg_dir" "$site_packages/"
+                    log "  Installed package: $dir_name"
+                fi
+            fi
+        done
+
+        # Copy metadata
+        for dist_info in "$temp_dir"/*.dist-info; do
+            if [[ -d "$dist_info" ]]; then
+                cp -r "$dist_info" "$site_packages/"
+                log "  Installed metadata: $(basename "$dist_info")"
+            fi
+        done
+
         # Cleanup temporary directory
         rm -rf "$temp_dir"
+        success "$package_name installed successfully"
+        return 0
+    }
 
-        success "rknn-toolkit-lite2 successfully installed to site-packages (requires OS 9.1.79.3+)"
-    else
-        warn "rknn-toolkit-lite2 wheel not found at: $wheel_path"
-        warn "Run ./setup first to clone rknn-toolkit2"
+    # Install both packages
+    local install_count=0
+
+    if install_wheel "$lite_wheel_path" "rknn-toolkit-lite2"; then
+        install_count=$((install_count + 1))
+    fi
+
+    if install_wheel "$full_wheel_path" "rknn-toolkit2"; then
+        install_count=$((install_count + 1))
+    fi
+
+    if [[ $install_count -eq 0 ]]; then
+        error "No RKNN toolkit packages installed. Run ./setup first to clone rknn-toolkit2"
         return 1
     fi
+
+    success "RKNN toolkit packages installed ($install_count packages, requires OS 9.1.79.3+)"
+    log "Installed packages provide both 'rknn.api.RKNN' and 'rknnlite.api.RKNNLite' APIs"
 }
 
 # Copy YOLOX example if requested
