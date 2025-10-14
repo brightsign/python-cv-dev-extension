@@ -970,7 +970,7 @@ The extension includes **both** RKNN toolkit packages:
 - `rknn-toolkit2` - Full toolkit (provides `rknn.api.RKNN` for model_zoo examples)
 - `rknn-toolkit-lite2` - Lightweight runtime (provides `rknnlite.api.RKNNLite`)
 
-This means you can run official `rknn_model_zoo` examples directly on the player without modification!
+**Important**: The full `rknn-toolkit2` package requires `onnx` which must be installed via pip. Run `/usr/local/pydev/bsext_init start` to automatically install dependencies from `requirements.txt`.
 
 #### Example: YOLOX Object Detection
 
@@ -978,18 +978,18 @@ This example demonstrates NPU-accelerated object detection using the official YO
 
 **Step 1: Get the compiled model and test images**
 
-Transfer the pre-compiled YOLOX model to your player. These are available from the `rknn_model_zoo` repository or you can compile your own.
+Transfer the pre-compiled YOLOX model to your player.
 
 ```sh
-# On your development machine (or download directly to player)
-# Download pre-compiled model
+# On your development machine
+# Download pre-compiled model for RK3588
 wget https://github.com/airockchip/rknn_model_zoo/releases/download/v2.3.2/yolox_s_rk3588.rknn
 
-# Transfer to player
-scp yolox_s_rk3588.rknn brightsign@<PLAYER_IP>:/storage/sd/
+# Transfer to player (use your player's IP)
+scp yolox_s_rk3588.rknn brightsign@<PLAYER_IP>:/usr/local/yolox_s.rknn
 
 # Also transfer a test image (e.g., bus.jpg from COCO dataset)
-scp bus.jpg brightsign@<PLAYER_IP>:/storage/sd/
+scp bus.jpg brightsign@<PLAYER_IP>:/usr/local/bus.jpg
 ```
 
 **Step 2: Set up on the player**
@@ -998,12 +998,15 @@ scp bus.jpg brightsign@<PLAYER_IP>:/storage/sd/
 # SSH to player
 ssh brightsign@<PLAYER_IP>
 
-# Source Python environment
+# Initialize extension (installs dependencies from requirements.txt including onnx)
 cd /usr/local/pydev
+./bsext_init start
+
+# Source Python environment
 source sh/setup_python_env
 
-# Download model_zoo examples
-cd /storage/sd
+# Download model_zoo examples to /usr/local
+cd /usr/local
 wget https://github.com/airockchip/rknn_model_zoo/archive/refs/tags/v2.3.2.zip
 unzip v2.3.2.zip
 mv rknn_model_zoo-2.3.2 rknn_model_zoo
@@ -1012,12 +1015,12 @@ mv rknn_model_zoo-2.3.2 rknn_model_zoo
 **Step 3: Run YOLOX inference**
 
 ```sh
-# Set explicit paths
-export MODEL_PATH=/storage/sd/yolox_s_rk3588.rknn
-export IMG_FOLDER=/storage/sd/
+# Set explicit paths (using /usr/local for writable, executable storage)
+export MODEL_PATH=/usr/local/yolox_s.rknn
+export IMG_FOLDER=/usr/local/
 
 # Run the model_zoo example
-cd /storage/sd/rknn_model_zoo/examples/yolox/python
+cd /usr/local/rknn_model_zoo/examples/yolox/python
 python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder ${IMG_FOLDER}
 ```
 
