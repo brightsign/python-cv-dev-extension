@@ -966,43 +966,72 @@ echo "Python development environment is set up.  Use 'python3' and 'pip3' to wor
 
 ### Running RKNN Model Zoo Examples
 
-The extension includes **both** RKNN toolkit packages for maximum compatibility:
+The extension includes **both** RKNN toolkit packages:
 - `rknn-toolkit2` - Full toolkit (provides `rknn.api.RKNN` for model_zoo examples)
 - `rknn-toolkit-lite2` - Lightweight runtime (provides `rknnlite.api.RKNNLite`)
 
-This means you can run `rknn_model_zoo` examples directly on the player without modification!
+This means you can run official `rknn_model_zoo` examples directly on the player without modification!
 
-#### Example: YOLOX Object Detection with Model Zoo
+#### Example: YOLOX Object Detection
 
-**Prerequisites**: Compiled YOLOX model for RK3588 (`.rknn` file) and test images
+This example demonstrates NPU-accelerated object detection using the official YOLOX model and example code.
+
+**Step 1: Get the compiled model and test images**
+
+Transfer the pre-compiled YOLOX model to your player. These are available from the `rknn_model_zoo` repository or you can compile your own.
 
 ```sh
-# On the player (development mode)
+# On your development machine (or download directly to player)
+# Download pre-compiled model
+wget https://github.com/airockchip/rknn_model_zoo/releases/download/v2.3.2/yolox_s_rk3588.rknn
+
+# Transfer to player
+scp yolox_s_rk3588.rknn brightsign@<PLAYER_IP>:/storage/sd/
+
+# Also transfer a test image (e.g., bus.jpg from COCO dataset)
+scp bus.jpg brightsign@<PLAYER_IP>:/storage/sd/
+```
+
+**Step 2: Set up on the player**
+
+```sh
+# SSH to player
+ssh brightsign@<PLAYER_IP>
+
+# Source Python environment
 cd /usr/local/pydev
 source sh/setup_python_env
 
 # Download model_zoo examples
-cd /usr/local
+cd /storage/sd
 wget https://github.com/airockchip/rknn_model_zoo/archive/refs/tags/v2.3.2.zip
 unzip v2.3.2.zip
 mv rknn_model_zoo-2.3.2 rknn_model_zoo
-
-# Run YOLOX example (uses rknn.api.RKNN from full toolkit)
-cd rknn_model_zoo/examples/yolox/python
-export MODEL_PATH=/path/to/yolox_s.rknn  # Your compiled .rknn model
-python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder /path/to/images/
 ```
 
-**Alternative**: Use the included validation script (simpler, better documented):
+**Step 3: Run YOLOX inference**
 
 ```sh
-# This script is pre-installed and fully validated
-python3 /usr/local/pydev/user-init/examples/test_yolox_npu.py \
-    /path/to/yolox_s.rknn \
-    /path/to/test_image.jpg
+# Set explicit paths
+export MODEL_PATH=/storage/sd/yolox_s_rk3588.rknn
+export IMG_FOLDER=/storage/sd/
+
+# Run the model_zoo example
+cd /storage/sd/rknn_model_zoo/examples/yolox/python
+python3 yolox.py --model_path ${MODEL_PATH} --target rk3588 --img_folder ${IMG_FOLDER}
 ```
 
-**Note**: Both approaches work on OS 9.1.79.3+. The validation script uses `rknnlite.api.RKNNLite` and includes detailed output.
+**Expected output**:
+```
+--> Init runtime environment
+done
+--> Running model
+save result to ./result.jpg
+```
+
+The example will detect objects in your test image and save results to `result.jpg` with bounding boxes and labels.
+
+**Note**: Requires BrightSign OS 9.1.79.3 or later for NPU functionality.
 
 ## Troubleshooting
 
