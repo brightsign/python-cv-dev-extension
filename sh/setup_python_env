@@ -165,70 +165,45 @@ setup_python_environment() {
     log_verbose "Python environment setup complete"
 }
 
-# Setup RKNN runtime library paths and preloading
+# Setup RKNN runtime library paths
 setup_rknn_libraries() {
     local extension_home="$1"
-    local rknn_lib="$extension_home/usr/lib/librknnrt.so"
-    
-    if [ ! -f "$rknn_lib" ]; then
-        echo "Warning: RKNN Runtime library not found at: $rknn_lib"
-        echo "Python RKNN toolkit may not work correctly."
+
+    # BrightSign OS 9.1.79.3+ provides /usr/lib/librknnrt.so natively
+    # This is the correct location for ARM64 systems (not /usr/lib64/)
+    # Extension also packages the library for direct Python toolkit access
+
+    log_verbose "Checking for RKNN runtime library"
+
+    # Prefer system-provided library (OS 9.1.79.3+)
+    if [ -f "/usr/lib/librknnrt.so" ]; then
+        log_verbose "Using system RKNN library at /usr/lib/librknnrt.so"
+        echo "RKNN Runtime library found (system - OS 9.1.79.3+)"
         return 0
     fi
-    
-    log_verbose "Setting up RKNN runtime libraries"
-    
-    # CRITICAL FIX: Use LD_PRELOAD to force-load librknnrt.so before RKNN initialization
-    # This bypasses RKNN's hardcoded path checking that expects library in /usr/lib/
-    export LD_PRELOAD="$rknn_lib:$LD_PRELOAD"
-    log_verbose "Added librknnrt.so to LD_PRELOAD: $rknn_lib"
-    
-    # Create lib64 directory in extension for RKNN to find libraries
-    mkdir -p "$extension_home/lib64"
-    ln -sf "$extension_home/usr/lib/librknnrt.so" "$extension_home/lib64/librknnrt.so" 2>/dev/null || true
-    
-    # Create symlinks for versioned library files
-    for lib_file in "$extension_home/usr/lib/librknnrt.so"*; do
-        if [ -f "$lib_file" ]; then
-            local lib_name
-            lib_name=$(basename "$lib_file")
-            ln -sf "../usr/lib/$lib_name" "$extension_home/lib64/$lib_name" 2>/dev/null || true
-        fi
-    done
-    
-    # Update LD_LIBRARY_PATH to include the lib64 directory
-    export LD_LIBRARY_PATH="$extension_home/lib64:$LD_LIBRARY_PATH"
-    
-    # Set environment variables that RKNN might use
-    export RKNN_LIB_PATH="$extension_home/usr/lib"
-    
-    # CRITICAL: Create symlink in /tmp/lib for patched RKNN binaries
-    # RKNN binaries have been patched to look for "/tmp/lib/librknnrt.so" (same length as "/usr/lib/librknnrt.so")
-    mkdir -p "/tmp/lib" 2>/dev/null || true
-    if [ -d "/tmp/lib" ]; then
-        ln -sf "$rknn_lib" "/tmp/lib/librknnrt.so" 2>/dev/null || true
-        log_verbose "Created symlink: /tmp/lib/librknnrt.so -> $rknn_lib"
+
+    # Fallback to extension-provided library
+    if [ -f "$extension_home/usr/lib/librknnrt.so" ]; then
+        log_verbose "Using extension RKNN library at $extension_home/usr/lib/librknnrt.so"
+
+        # Add extension library path
+        export LD_LIBRARY_PATH="$extension_home/usr/lib:$LD_LIBRARY_PATH"
+
+        # Set environment variable for RKNN toolkit
+        export RKNN_LIB_PATH="$extension_home/usr/lib"
+
+        echo "RKNN Runtime library found (extension)"
+        log_verbose "RKNN library path added to LD_LIBRARY_PATH"
+        return 0
     fi
-    
-    # Also create system lib64 symlinks if writable area exists (for compatibility)
-    if [ -w "/usr/local" ]; then
-        mkdir -p "/usr/local/lib64" 2>/dev/null || true
-        if [ -d "/usr/local/lib64" ]; then
-            ln -sf "$rknn_lib" "/usr/local/lib64/librknnrt.so" 2>/dev/null || true
-            for lib_file in "$extension_home/usr/lib/librknnrt.so"*; do
-                if [ -f "$lib_file" ]; then
-                    local lib_name
-                    lib_name=$(basename "$lib_file")
-                    ln -sf "$lib_file" "/usr/local/lib64/$lib_name" 2>/dev/null || true
-                fi
-            done
-            export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
-        fi
-    fi
-    
-    echo "RKNN Runtime library setup complete."
-    log_verbose "RKNN library paths: $LD_LIBRARY_PATH"
-    log_verbose "RKNN preload: $LD_PRELOAD"
+
+    # No RKNN library found - warn but don't fail
+    echo "Warning: RKNN Runtime library not found"
+    echo "  System: /usr/lib/librknnrt.so (requires OS 9.1.79.3+)"
+    echo "  Extension: $extension_home/usr/lib/librknnrt.so"
+    echo "  RKNN toolkit may not work correctly"
+    log_verbose "RKNN library not found in system or extension"
+    return 0
 }
 
 # Print helpful information after setup
