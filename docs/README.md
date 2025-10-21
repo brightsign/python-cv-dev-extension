@@ -59,11 +59,18 @@ This directory contains comprehensive documentation for developing and deploying
    - Build optimization strategies
    - Artifact management
 
-8. **[troubleshooting.md](troubleshooting.md)** - Comprehensive issue resolution
+8. **[troubleshooting.md](troubleshooting.md)** - Build issue resolution
    - Quick diagnosis flowchart
    - Error message reference
    - Advanced debugging techniques
    - Recovery procedures
+
+9. **[troubleshooting-user-init.md](troubleshooting-user-init.md)** - User script initialization troubleshooting
+   - Complete initialization flow diagram
+   - Systematic diagnostic checks
+   - 21+ failure point analysis
+   - Copy-paste diagnostic commands
+   - Common scenarios and solutions
 
 ### Quick Start Path
 
@@ -168,17 +175,20 @@ See [../WORKFLOWS.md](../WORKFLOWS.md) for comprehensive command reference. Quic
 - **Deploy to a player** → Follow [deployment.md](deployment.md)
 - **Use NPU for inference** → See [model-zoo-guide.md](model-zoo-guide.md)
 - **Find a specific command** → Check [../WORKFLOWS.md](../WORKFLOWS.md)
-- **Solve a problem** → Try [../FAQ.md](../FAQ.md) first, then [troubleshooting.md](troubleshooting.md)
+- **Solve a build problem** → Try [../FAQ.md](../FAQ.md) first, then [troubleshooting.md](troubleshooting.md)
+- **Fix user script issues** → See [troubleshooting-user-init.md](troubleshooting-user-init.md)
 - **Add a Python package** → See [build-process.md](build-process.md)
 - **Understand BitBake** → Deep dive in [build-process.md](build-process.md)
 
 ### Getting Help
 
 1. **Check [../FAQ.md](../FAQ.md)** - Most common questions answered
-2. **Search [troubleshooting.md](troubleshooting.md)** - Error messages and solutions
+2. **Search troubleshooting guides**:
+   - Build issues → [troubleshooting.md](troubleshooting.md)
+   - User script issues → [troubleshooting-user-init.md](troubleshooting-user-init.md)
 3. **Review [../WORKFLOWS.md](../WORKFLOWS.md)** - Ensure you're using correct commands
 4. **Check prerequisites** - Many issues stem from incompatible systems
-5. **Read error logs** - BitBake provides detailed failure information
+5. **Read error logs** - BitBake and extension provide detailed failure information
 
 ### Contributing
 
