@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(./package:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git log:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
