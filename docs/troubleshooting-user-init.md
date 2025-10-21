@@ -333,35 +333,42 @@ ls -la /storage/sd/python-init/
 
 ---
 
-### Check 7: Are Scripts Executable?
+### Check 7: Are Scripts Readable? (noexec Filesystem)
 
-**Symptoms**: Scripts present but get skipped with "not executable" message
+**IMPORTANT**: `/storage/sd` is mounted with `noexec` flag. The executable bit (`chmod +x`) **does NOT control** script execution. All `.sh` files are run via `bash` regardless of the executable bit.
+
+**Symptoms**: Scripts present but get skipped
 
 ```bash
-# Check permissions on your scripts
+# Check what scripts exist
 ls -lah /storage/sd/python-init/*.sh
 
-# Look for 'x' in permissions
-# Good:  -rwxr-xr-x  (has 'x' - executable)
-# Bad:   -rw-r--r--  (no 'x' - NOT executable)
+# The executable bit (x) doesn't matter for execution!
+# Scripts run if they:
+# 1. End in .sh
+# 2. Are readable (should be by default)
 ```
 
-**Fix if not executable**:
+**Why "not executable" is misleading**: The old check used `[ -x ]` which fails on `noexec` filesystems even when the permission bit is set. **As of this fix, all `.sh` files run automatically.**
+
+**To disable a script** (since chmod +x/-x doesn't work):
 
 ```bash
-# Make script executable
-chmod +x /storage/sd/python-init/your_script.sh
+# Method 1: Rename to remove .sh extension
+mv /storage/sd/python-init/script.sh /storage/sd/python-init/script.sh.disabled
 
-# Verify
-ls -la /storage/sd/python-init/your_script.sh
-
-# Should show: -rwxr-xr-x
+# Method 2: Make unreadable (requires root)
+chmod -r /storage/sd/python-init/script.sh
 ```
 
-**Make all .sh files executable**:
+**To enable a script**:
 
 ```bash
-chmod +x /storage/sd/python-init/*.sh
+# Method 1: Rename to add .sh extension
+mv /storage/sd/python-init/script.sh.disabled /storage/sd/python-init/script.sh
+
+# Method 2: Make readable
+chmod +r /storage/sd/python-init/script.sh
 ```
 
 ---

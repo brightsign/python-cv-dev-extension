@@ -64,8 +64,12 @@ for script in "${USER_INIT_DIR}"/*.sh; do
 
     script_name=$(basename "$script")
 
-    # Check if script has executable bit set (allows toggling on/off)
-    if [ -x "$script" ]; then
+    # Check if script has executable permission bit set (allows toggling on/off)
+    # Note: Cannot use [ -x ] because /storage/sd is mounted noexec
+    # The -x test fails on noexec filesystems even when permission bit is set
+    # Instead, check if file is readable (all .sh files should be)
+    # Users can toggle scripts by renaming (e.g., script.sh.disabled)
+    if [ -r "$script" ]; then
         found_scripts=true
         echo "Running user init script: $script_name"
 
@@ -77,13 +81,13 @@ for script in "${USER_INIT_DIR}"/*.sh; do
         fi
     else
         found_disabled_scripts=true
-        echo "Skipping disabled script: $script_name (not executable)"
+        echo "Skipping script: $script_name (not readable)"
     fi
 done
 
 if [ "$found_scripts" = false ]; then
     if [ "$found_disabled_scripts" = true ]; then
-        echo "No executable .sh scripts found in ${USER_INIT_DIR} (some scripts are disabled)"
+        echo "No runnable .sh scripts found in ${USER_INIT_DIR} (some scripts were skipped)"
     else
         echo "No .sh user init scripts found in ${USER_INIT_DIR}"
     fi

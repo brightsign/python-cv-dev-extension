@@ -126,9 +126,23 @@ ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
 **Important**: PyPI packages must have pre-compiled wheels for the target platform (aarch64/ARM64). The player has no build system (no cmake, gcc, etc.), so packages requiring compilation will fail to install.
 
 ### Script Toggle Control
-- Remove executable bit to disable: `chmod -x script.sh`
-- Add executable bit to enable: `chmod +x script.sh`
-- Extension shows which scripts are skipped
+
+**Note**: `/storage/sd` is mounted with `noexec` flag, so the executable bit (`chmod +x`) has no effect on script execution. All `.sh` files in `/storage/sd/python-init/` are automatically run via `bash`.
+
+**To disable a script**, rename it to not end in `.sh`:
+```bash
+# Disable a script
+mv /storage/sd/python-init/01_validate_cv.sh /storage/sd/python-init/01_validate_cv.sh.disabled
+
+# Re-enable it
+mv /storage/sd/python-init/01_validate_cv.sh.disabled /storage/sd/python-init/01_validate_cv.sh
+```
+
+**Alternative**: Make file unreadable (requires root):
+```bash
+chmod -r /storage/sd/python-init/01_validate_cv.sh  # Disable
+chmod +r /storage/sd/python-init/01_validate_cv.sh  # Enable
+```
 
 ### Execution Order Control
 - Scripts run in alphabetical order
@@ -162,12 +176,30 @@ ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
 
 ## Troubleshooting
 
-See `examples/README.md` for detailed troubleshooting information.
+**Complete troubleshooting guide**: See [docs/troubleshooting-user-init.md](../docs/troubleshooting-user-init.md) for comprehensive diagnostics.
 
 Common issues:
-- **Scripts not running**: Check executable permissions
+- **Scripts not running**: Verify scripts end in `.sh` and check registry settings
+  (`/storage/sd` is `noexec`, so `chmod +x` doesn't matter - all `.sh` files run)
 - **Package installation fails**: Check network connectivity and logs
 - **Import errors**: Verify packages installed correctly
 - **Execution order**: Use numeric prefixes to control order
 
-For more detailed documentation, see the `examples/` and `templates/` directories.
+Quick checks:
+```bash
+# 1. Are user scripts enabled? (MOST COMMON ISSUE)
+registry read extension bsext-pydev-enable-user-scripts
+# Should return "true" - if not: registry write extension bsext-pydev-enable-user-scripts true
+
+# 2. Do scripts exist and end in .sh?
+ls -la /storage/sd/python-init/*.sh
+# Should list .sh files (executable bit doesn't matter - noexec filesystem)
+
+# 3. Check logs
+tail -f /var/log/bsext-pydev.log
+```
+
+For more detailed documentation, see:
+- [docs/troubleshooting-user-init.md](../docs/troubleshooting-user-init.md) - Complete troubleshooting guide
+- [examples/README.md](examples/README.md) - Example-specific documentation
+- [templates/](templates/) - Script templates
