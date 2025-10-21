@@ -1,65 +1,39 @@
-pandas
-scikit-image
+# Example user-installable packages for BrightSign Python extension
+# Place this file in /storage/sd/python-init/requirements.txt
+#
+# IMPORTANT: Do NOT list packages already in the SDK
+# Pre-installed packages include:
+#   - Python 3.8 standard library
+#   - numpy, scipy, pandas
+#   - opencv (cv2), pillow (PIL), scikit-image
+#   - torch, torchvision
+#   - rknnlite (NPU acceleration)
+#   - matplotlib, seaborn
+#   - Common utilities: protobuf, flatbuffers, psutil, tqdm, etc.
+#
+# Only add packages you need that are NOT pre-installed in the SDK
 
-# Core utilities
-APScheduler==3.10.1
-async-timeout==5.0.1
-cachetools==5.5.0
-certifi==2025.4.26
-charset-normalizer==3.4.2
-coloredlogs==15.0.1
-contourpy
-cycler==0.12.1
-filelock==3.16.1
-flatbuffers==25.2.10
-fonttools
-fsspec==2025.3.0
-gmc==1.0.0
-humanfriendly==10.0
-idna==3.10
-imageio
-isodate==0.7.2
-Jinja2==3.1.6
-kiwisolver
-lazy_loader==0.4
-MarkupSafe==2.1.5
-mpmath==1.3.0
-networkx==3.1
-numpy
-packaging==25.0
-##pandas
-pillow
-protobuf==3.20.3
-psutil==7.0.0
-py-cpuinfo==9.0.0
-pyparsing==3.1.4
-pyserial==3.4
-python-dateutil==2.8.2
-pytz==2021.3
-PyYAML==6.0.2
-redis==5.2.1
-requests==2.32.4
-rknn-toolkit-lite2 @ file:///usr/local/pydev/usr/lib/python3.8/wheels/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
-ruamel.yaml
-#ruamel.yaml.clib==0.2.12
-##scikit-image
-scipy==1.10.1
-seaborn==0.11.2
-six==1.17.0
-sympy==1.13.1
-termcolor==2.4.0
-tifffile
-torch
-torchvision
-tqdm==4.67.1
-typing_extensions==4.13.2
-tzdata
-tzlocal==2.1
-urllib3==2.2.3
-watchdog==4.0.2
-yacs==0.1.8
+# Example: Extended OpenCV modules (extra algorithms not in standard build)
+#opencv-contrib-python==4.10.0.84
 
+# Example: Additional ML/AI libraries
+#scikit-learn
+#xgboost
 
-# RKNN toolkit for BrightSign hardware acceleration
-#rknn-toolkit-lite2 @ file:///var/volatile/bsext/usr/lib/python3.8/wheels/rknn_toolkit_lite2-2.3.2-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+# Example: Application utilities
+#APScheduler==3.10.1
+#requests==2.32.4
+#redis==5.2.1
+#PyYAML==6.0.2
+#python-dateutil==2.8.2
 
+# Example: Data processing
+#openpyxl
+#xlrd
+
+# Example: Communication protocols
+#pyserial==3.4
+#modbus-tk
+
+# Note: User-init system automatically applies --only-binary=:all: flag
+# This prevents compilation on the player (which has no build tools)

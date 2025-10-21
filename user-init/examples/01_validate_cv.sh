@@ -2,6 +2,9 @@
 # CV Environment Validation Script
 # This script runs Python CV package tests and logs results
 # Place in /storage/sd/python-init/ to run automatically at startup
+#
+# NOTE: This is an informational validation - it reports what packages
+# are available but does NOT fail if optional packages are missing
 
 LOG_FILE="/storage/sd/python-init/cv_test.log"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,9 +24,10 @@ fi
 # Run the Python CV tests
 echo "Running CV package tests..." | tee -a "${LOG_FILE}"
 if python3 "${TEST_SCRIPT}" >> "${LOG_FILE}" 2>&1; then
-    echo "✓ CV validation completed successfully" | tee -a "${LOG_FILE}"
+    echo "✓ CV environment validation completed" | tee -a "${LOG_FILE}"
+    echo "See ${LOG_FILE} for package availability report" | tee -a "${LOG_FILE}"
     exit 0
 else
-    echo "✗ CV validation failed - check ${LOG_FILE} for details" | tee -a "${LOG_FILE}"
+    echo "✗ CV validation script error - check ${LOG_FILE} for details" | tee -a "${LOG_FILE}"
     exit 1
 fi

@@ -50,9 +50,10 @@ ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
 ## What Each File Does
 
 ### requirements.txt
-- Automatically installs Python packages at startup
+- Example template for user-installable Python packages
+- Automatically installs packages at startup
 - Processed first, before any shell scripts run
-- Edit to add/remove packages as needed
+- **Important**: Do NOT list SDK packages (see Pre-installed Packages below)
 - **Important**: Only packages with ARM64/aarch64 wheels will install (no build system on player)
 
 ### 01_validate_cv.sh  
@@ -62,9 +63,10 @@ ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
 - Runs after requirements.txt installation
 
 ### test_cv_packages.py
-- Python script that tests importing all CV/ML packages  
+- Python script that validates SDK environment
+- Tests importing pre-installed CV/ML packages
 - Called by 01_validate_cv.sh
-- Provides detailed pass/fail results for each package
+- Reports informationally - missing optional packages don't cause failure
 
 ## Verification
 
@@ -81,10 +83,69 @@ ssh admin@<player-ip> "cat /storage/sd/python-init/cv_test.log"
 ssh admin@<player-ip> "cat /storage/sd/python-init/requirements-install.log"
 ```
 
+## Troubleshooting
+
+**Scripts not running?** See the complete troubleshooting guide: [docs/troubleshooting-user-init.md](../../docs/troubleshooting-user-init.md)
+
+**Quick checks**:
+1. **User scripts enabled?** `registry read extension bsext-pydev-enable-user-scripts` (must be "true")
+2. **Scripts executable?** `ls -la /storage/sd/python-init/*.sh` (should show 'x' permission)
+3. **Check logs**: `tail -f /var/log/bsext-pydev.log`
+
+## Pre-installed SDK Packages
+
+The following packages are **already installed** in the extension and should **NOT** be listed in `requirements.txt`:
+
+### Core Python
+- Python 3.8.19 + standard library
+- pip, setuptools, wheel
+
+### Computer Vision & Image Processing
+- **opencv** (cv2) - OpenCV 4.x
+- **pillow** (PIL) - Image processing library
+- **scikit-image** (skimage) - Image algorithms
+
+### Machine Learning & Deep Learning
+- **torch** - PyTorch 2.4.1
+- **torchvision** - PyTorch vision library
+- **rknnlite** - RKNN NPU acceleration toolkit
+
+### Scientific Computing
+- **numpy** - NumPy arrays
+- **scipy** - SciPy scientific functions
+- **pandas** - Data analysis
+- **matplotlib** - Plotting
+- **seaborn** - Statistical visualization
+
+### Common Utilities
+- **protobuf** - Protocol Buffers
+- **flatbuffers** - FlatBuffers serialization
+- **psutil** - System utilities
+- **tqdm** - Progress bars
+- **filelock** - File locking
+- **fsspec** - Filesystem spec
+- **networkx** - Graph algorithms
+- **mpmath** - Math functions
+- **jinja2** - Templating
+- **markupsafe** - Safe string handling
+- **ruamel.yaml** - YAML processing
+- **pyyaml** - YAML processing
+- **typing_extensions** - Type hints
+
+## User-Installable Packages
+
+Add to `requirements.txt` only if you need packages **not** listed above. Examples:
+- **opencv-contrib-python** - Extended OpenCV modules
+- **scikit-learn** - Machine learning algorithms
+- **requests** - HTTP library
+- **APScheduler** - Task scheduling
+- **redis** - Redis client
+- **pyserial** - Serial port communication
+
 ## Customization
 
-1. **Modify requirements.txt**: Add/remove Python packages
+1. **Modify requirements.txt**: Add user-installable packages (not SDK packages)
 2. **Edit 01_validate_cv.sh**: Change logging behavior or add custom validation
-3. **Extend test_cv_packages.py**: Add tests for additional packages
+3. **Extend test_cv_packages.py**: Add tests for user-installed packages
 
 See the `../templates/` directory for templates to create your own scripts.
