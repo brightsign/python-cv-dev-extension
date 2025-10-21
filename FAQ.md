@@ -193,6 +193,8 @@ ssh brightsign@<player-ip>  # Should connect without issues
 - Scripts in wrong location: Must be in `/storage/sd/python-init/`
 - Script errors: Check `/var/log/bsext-pydev.log` for errors
 
+**Complete troubleshooting**: See [docs/troubleshooting-user-init.md](docs/troubleshooting-user-init.md) for comprehensive diagnostics covering all 21+ failure points.
+
 ### Can user scripts run Python code?
 
 **Directly**: No, only shell scripts (`.sh` files) can execute from `/storage/sd/` (noexec mount).

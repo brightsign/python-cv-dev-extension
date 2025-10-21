@@ -340,9 +340,11 @@ python3 -c "import cv2, torch, numpy; print('OK')"
 | Build fails: "No space" | Free 50GB+ disk space |
 | Player: RKNN init fails | Upgrade to OS 9.1.79.3+ |
 | Extension won't install | Unsecure player (`SECURE_CHECKS=0`) |
-| Scripts don't run | Enable user scripts via registry |
+| Scripts don't run | Enable user scripts via registry (see [troubleshooting guide](docs/troubleshooting-user-init.md)) |
 
-**Full troubleshooting**: [docs/troubleshooting.md](docs/troubleshooting.md)
+**Full troubleshooting**:
+- Build issues: [docs/troubleshooting.md](docs/troubleshooting.md)
+- User script issues: [docs/troubleshooting-user-init.md](docs/troubleshooting-user-init.md)
 
 ---
 

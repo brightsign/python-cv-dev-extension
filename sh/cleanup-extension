@@ -7,13 +7,9 @@ EXTENSION_HOME=$(dirname ${SCRIPT_DIR})
 
 echo "Cleaning up extension..."
 
-# Note: No system symlinks to remove - not created during init
-
-# Clean up any extension-created temporary symlinks
-if [ -d "/usr/local/lib64" ]; then
-    # Only remove symlinks pointing to our extension
-    find /usr/local/lib64 -type l -lname "${EXTENSION_HOME}/*" -delete 2>/dev/null || true
-fi
+# Note: Extension no longer creates system symlinks as of OS 9.1.79.3+
+# System provides /usr/lib/librknnrt.so natively
+# Extension uses LD_LIBRARY_PATH instead of symlink creation
 
 echo "Extension cleanup completed"
 exit 0
