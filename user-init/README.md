@@ -4,7 +4,7 @@ This directory contains tools, examples, and templates for the Python Developmen
 
 ## Directory Structure
 
-```
+```ini
 user-init/
 ├── README.md              # This file - overview of the system
 ├── tools/                 # Developer tools (run on development host)
@@ -83,9 +83,9 @@ ssh admin@<player-ip> "cat /storage/sd/python-init/cv_test.log"
 
 Start with a template from `templates/`:
 
-- **basic_script.sh** - Simple shell script template
-- **python_wrapper.sh** - Template for running Python scripts  
-- **requirements_template.txt** - Template for package installation
+- __basic_script.sh__ - Simple shell script template
+- __python_wrapper.sh__ - Template for running Python scripts
+- __requirements_template.txt__ - Template for package installation
 
 ### 2. Customize for Your Needs
 
@@ -118,6 +118,7 @@ ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
 ## Key Features
 
 ### Automatic Package Installation
+
 - Drop `requirements.txt` file in `/storage/sd/python-init/`
 - Packages install automatically at startup
 - Uses standard pip requirements format
@@ -130,6 +131,7 @@ ssh admin@<player-ip> "/var/volatile/bsext/ext_pydev/bsext_init restart"
 **Note**: `/storage/sd` is mounted with `noexec` flag, so the executable bit (`chmod +x`) has no effect on script execution. All `.sh` files in `/storage/sd/python-init/` are automatically run via `bash`.
 
 **To disable a script**, rename it to not end in `.sh`:
+
 ```bash
 # Disable a script
 mv /storage/sd/python-init/01_validate_cv.sh /storage/sd/python-init/01_validate_cv.sh.disabled
@@ -139,17 +141,20 @@ mv /storage/sd/python-init/01_validate_cv.sh.disabled /storage/sd/python-init/01
 ```
 
 **Alternative**: Make file unreadable (requires root):
+
 ```bash
 chmod -r /storage/sd/python-init/01_validate_cv.sh  # Disable
 chmod +r /storage/sd/python-init/01_validate_cv.sh  # Enable
 ```
 
 ### Execution Order Control
+
 - Scripts run in alphabetical order
 - Use numeric prefixes: `01_setup.sh`, `02_validate.sh`, `99_cleanup.sh`
 - Requirements installation always happens first
 
 ### Built-in Logging
+
 - Extension logs to `/var/log/bsext-pydev.log`
 - Requirements installation to `/storage/sd/python-init/requirements-install.log`
 - Script output can be redirected to custom log files
@@ -157,10 +162,12 @@ chmod +r /storage/sd/python-init/01_validate_cv.sh  # Enable
 ## File Organization
 
 ### For Development Host
+
 - **tools/**: Scripts for developers to run on their development machine
 - **templates/**: Starting points for creating custom scripts
 
-### For Player Deployment  
+### For Player Deployment
+
 - **examples/**: Ready-to-use files that get deployed to `/storage/sd/python-init/`
 - These files run automatically when the extension starts
 
@@ -169,7 +176,7 @@ chmod +r /storage/sd/python-init/01_validate_cv.sh  # Enable
 1. **Start with examples**: Use provided examples as reference
 2. **Use templates**: Templates include proper error handling and logging
 3. **Test incrementally**: Test simple scripts before complex ones
-4. **Use descriptive names**: `setup_models.sh` vs `script.sh`
+4. __Use descriptive names__: `setup_models.sh` vs `script.sh`
 5. **Control execution order**: Use numeric prefixes when order matters
 6. **Enable/disable easily**: Use executable bit for script toggling
 7. **Log appropriately**: Direct output to files for debugging
@@ -179,13 +186,15 @@ chmod +r /storage/sd/python-init/01_validate_cv.sh  # Enable
 **Complete troubleshooting guide**: See [docs/troubleshooting-user-init.md](../docs/troubleshooting-user-init.md) for comprehensive diagnostics.
 
 Common issues:
+
 - **Scripts not running**: Verify scripts end in `.sh` and check registry settings
-  (`/storage/sd` is `noexec`, so `chmod +x` doesn't matter - all `.sh` files run)
+   (`/storage/sd` is `noexec`, so `chmod +x` doesn't matter - all `.sh` files run)
 - **Package installation fails**: Check network connectivity and logs
 - **Import errors**: Verify packages installed correctly
 - **Execution order**: Use numeric prefixes to control order
 
 Quick checks:
+
 ```bash
 # 1. Are user scripts enabled? (MOST COMMON ISSUE)
 registry read extension bsext-pydev-enable-user-scripts
@@ -200,6 +209,7 @@ tail -f /var/log/bsext-pydev.log
 ```
 
 For more detailed documentation, see:
+
 - [docs/troubleshooting-user-init.md](../docs/troubleshooting-user-init.md) - Complete troubleshooting guide
 - [examples/README.md](examples/README.md) - Example-specific documentation
 - [templates/](templates/) - Script templates
