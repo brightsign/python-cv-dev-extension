@@ -28,7 +28,7 @@ numpy==2.3.0
 packaging==25.0
 pandas==2.3.0
 pillow==11.2.1
-protobuf==6.31.1
+protobuf==6.33.5
 psutil==7.0.0
 py-cpuinfo==9.0.0
 pyparsing==3.2.3
